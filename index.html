@@ -351,7 +351,6 @@
       padding: 1.25rem 1.5rem;
       border: 1px solid #e2e8f0;
       background: #f7fafc;
-      max-width: 480px;
     }
     .corr-detail.positive { background: #f0fff4; border-color: #9ae6b4; }
     .corr-detail.negative { background: #fff5f5; border-color: #fed7d7; }
@@ -361,6 +360,21 @@
     .corr-coef  { font-size: 2.2rem; font-weight: 800; color: #2d3748; line-height: 1; }
     .corr-label { font-size: .95rem; font-weight: 700; margin-top: .4rem; color: #4a5568; }
     .corr-hint  { font-size: .78rem; color: #a0aec0; margin-top: .2rem; }
+
+    /* Scatter plot */
+    .corr-bottom {
+      display: none;
+      margin-top: 1.5rem;
+      gap: 1.5rem;
+      align-items: flex-start;
+      flex-wrap: wrap;
+    }
+    #scatter-canvas {
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      background: #fff;
+      max-width: 100%;
+    }
   </style>
 </head>
 <body>
@@ -422,6 +436,9 @@
     <div class="corr-coef"  id="corr-coef"></div>
     <div class="corr-label" id="corr-label"></div>
     <div class="corr-hint">Pearson r</div>
+  </div>
+  <div class="corr-bottom" id="corr-bottom">
+    <canvas id="scatter-canvas" width="500" height="370"></canvas>
   </div>
 </div>
 
@@ -966,6 +983,8 @@ function renderCorrelation(headers, dataRows) {
     if (i === j) return;
     const r = rMatrix[i][j];
     const desc = corrDescription(r);
+
+    // Detail box
     const box = document.getElementById('corr-detail');
     box.className = `corr-detail ${desc.cls}`;
     box.style.display = 'block';
@@ -973,12 +992,101 @@ function renderCorrelation(headers, dataRows) {
       `<strong>${escHtml(numCols[i].name)}</strong> vs <strong>${escHtml(numCols[j].name)}</strong>`;
     document.getElementById('corr-coef').textContent = isNaN(r) ? 'N/A' : r.toFixed(3);
     document.getElementById('corr-label').textContent = desc.label;
-    box.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+    // Scatter plot
+    drawScatter(numCols[i], numCols[j]);
+    box.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
 
   document.getElementById('corr-detail').style.display = 'none';
+  document.getElementById('corr-bottom').style.display = 'none';
   document.getElementById('corr').style.display = 'block';
   document.getElementById('corr').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function drawScatter(colX, colY) {
+  const pairs = [];
+  for (let k = 0; k < colX.nums.length; k++) {
+    const a = colX.nums[k], b = colY.nums[k];
+    if (!isNaN(a) && !isNaN(b)) pairs.push([a, b]);
+  }
+  if (pairs.length < 2) return;
+
+  const sample = pairs.length > 2000
+    ? pairs.filter(() => Math.random() < 2000 / pairs.length)
+    : pairs;
+  const xs = sample.map(p => p[0]), ys = sample.map(p => p[1]);
+
+  const canvas = document.getElementById('scatter-canvas');
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  const PAD = { top: 20, right: 20, bottom: 52, left: 62 };
+  const pw = W - PAD.left - PAD.right, ph = H - PAD.top - PAD.bottom;
+
+  ctx.clearRect(0, 0, W, H);
+
+  const minX = Math.min(...xs), maxX = Math.max(...xs);
+  const minY = Math.min(...ys), maxY = Math.max(...ys);
+  const rangeX = maxX - minX || 1, rangeY = maxY - minY || 1;
+  const toX = v => PAD.left + (v - minX) / rangeX * pw;
+  const toY = v => PAD.top + ph - (v - minY) / rangeY * ph;
+
+  // Grid
+  ctx.strokeStyle = '#e2e8f0'; ctx.lineWidth = 1;
+  for (let t = 0; t <= 4; t++) {
+    ctx.beginPath(); ctx.moveTo(PAD.left + t/4*pw, PAD.top); ctx.lineTo(PAD.left + t/4*pw, PAD.top+ph); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(PAD.left, PAD.top + t/4*ph); ctx.lineTo(PAD.left+pw, PAD.top + t/4*ph); ctx.stroke();
+  }
+
+  // Axes
+  ctx.strokeStyle = '#a0aec0'; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.moveTo(PAD.left, PAD.top); ctx.lineTo(PAD.left, PAD.top+ph); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(PAD.left, PAD.top+ph); ctx.lineTo(PAD.left+pw, PAD.top+ph); ctx.stroke();
+
+  // Tick labels
+  ctx.fillStyle = '#718096'; ctx.font = '11px sans-serif';
+  ctx.textAlign = 'center';
+  for (let t = 0; t <= 4; t++) {
+    ctx.fillText(fmtAxis(minX + t/4*rangeX), PAD.left + t/4*pw, PAD.top+ph+14);
+  }
+  ctx.textAlign = 'right';
+  for (let t = 0; t <= 4; t++) {
+    ctx.fillText(fmtAxis(minY + t/4*rangeY), PAD.left-5, PAD.top+ph - t/4*ph + 4);
+  }
+
+  // Axis titles
+  ctx.fillStyle = '#4a5568'; ctx.font = 'bold 11px sans-serif'; ctx.textAlign = 'center';
+  const xLbl = colX.name.length > 30 ? colX.name.slice(0,28)+'…' : colX.name;
+  const yLbl = colY.name.length > 30 ? colY.name.slice(0,28)+'…' : colY.name;
+  ctx.fillText(xLbl, PAD.left + pw/2, H - 6);
+  ctx.save(); ctx.translate(12, PAD.top + ph/2); ctx.rotate(-Math.PI/2); ctx.fillText(yLbl, 0, 0); ctx.restore();
+
+  // Points
+  ctx.fillStyle = 'rgba(229,62,62,0.4)';
+  for (const [x, y] of sample) {
+    ctx.beginPath(); ctx.arc(toX(x), toY(y), 3, 0, Math.PI*2); ctx.fill();
+  }
+
+  // Regression line
+  const n = xs.length;
+  const mx = xs.reduce((a,b)=>a+b,0)/n, my = ys.reduce((a,b)=>a+b,0)/n;
+  let num = 0, den = 0;
+  for (let i = 0; i < n; i++) { num += (xs[i]-mx)*(ys[i]-my); den += (xs[i]-mx)**2; }
+  const slope = den === 0 ? 0 : num/den;
+  const intercept = my - slope*mx;
+  ctx.strokeStyle = '#2b6cb0'; ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(toX(minX), toY(slope*minX+intercept));
+  ctx.lineTo(toX(maxX), toY(slope*maxX+intercept));
+  ctx.stroke();
+
+  document.getElementById('corr-bottom').style.display = 'flex';
+}
+
+function fmtAxis(n) {
+  if (Math.abs(n) >= 1e6) return (n/1e6).toFixed(1)+'M';
+  if (Math.abs(n) >= 1e3) return (n/1e3).toFixed(1)+'K';
+  return Number.isInteger(n) ? String(n) : parseFloat(n.toFixed(2)).toString();
 }
 
 // ─── App state & wiring ───────────────────────────────────────────────────────
