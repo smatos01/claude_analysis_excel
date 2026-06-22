@@ -79,6 +79,9 @@
     #sizer-btn { background: #805ad5; color: #fff; margin-top: 1rem; margin-left: .75rem; }
     #sizer-btn:not(:disabled):hover { background: #6b46c1; }
 
+    #corr-btn { background: #e53e3e; color: #fff; margin-top: 1rem; margin-left: .75rem; }
+    #corr-btn:not(:disabled):hover { background: #c53030; }
+
     #clear-btn { background: #e2e8f0; color: #4a5568; margin-left: .75rem; margin-top: 1rem; }
     #clear-btn:hover { background: #cbd5e0; }
 
@@ -304,6 +307,87 @@
       body { padding: 1rem; }
       .meta-grid { gap: 1rem; }
     }
+
+    /* ── Correlation Analysis ── */
+    #corr { display: none; }
+
+    .corr-section-title {
+      font-size: .85rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      color: #718096;
+      margin-bottom: 1rem;
+    }
+
+    /* Heatmap */
+    .heatmap-scroll { overflow-x: auto; margin-bottom: 2rem; }
+    .heatmap-table { border-collapse: collapse; font-size: .78rem; }
+    .heatmap-table th {
+      padding: .35rem .5rem;
+      font-weight: 600;
+      color: #4a5568;
+      white-space: nowrap;
+      max-width: 110px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .heatmap-table th.row-label { text-align: right; padding-right: .6rem; }
+    .heatmap-cell {
+      width: 60px;
+      height: 44px;
+      text-align: center;
+      font-size: .75rem;
+      font-weight: 600;
+      border: 1px solid rgba(255,255,255,.4);
+      cursor: default;
+    }
+
+    /* Scatter plot */
+    .scatter-controls {
+      display: flex;
+      gap: 1rem;
+      align-items: center;
+      flex-wrap: wrap;
+      margin-bottom: 1.25rem;
+    }
+    .scatter-controls select {
+      border: 1px solid #cbd5e0;
+      border-radius: 6px;
+      padding: .45rem .7rem;
+      font-size: .88rem;
+      color: #2d3748;
+      background: #fff;
+      cursor: pointer;
+    }
+    .scatter-controls select:focus { outline: none; border-color: #e53e3e; box-shadow: 0 0 0 2px rgba(229,62,62,.15); }
+    .scatter-vs { font-weight: 700; color: #a0aec0; }
+
+    .scatter-wrap {
+      display: flex;
+      gap: 1.5rem;
+      align-items: flex-start;
+      flex-wrap: wrap;
+    }
+    #scatter-canvas {
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      background: #fff;
+      max-width: 100%;
+    }
+    .corr-result {
+      min-width: 180px;
+      background: #fff5f5;
+      border: 1px solid #fed7d7;
+      border-radius: 10px;
+      padding: 1rem 1.2rem;
+      display: none;
+    }
+    .corr-result.positive { background: #f0fff4; border-color: #9ae6b4; }
+    .corr-result.none     { background: #f7fafc; border-color: #e2e8f0; }
+    .corr-coef { font-size: 2rem; font-weight: 800; color: #2d3748; }
+    .corr-label { font-size: .85rem; font-weight: 600; margin-top: .35rem; color: #4a5568; }
+    .corr-hint  { font-size: .78rem; color: #718096; margin-top: .2rem; }
   </style>
 </head>
 <body>
@@ -325,6 +409,7 @@
   <div style="margin-top:1rem; display:flex; flex-wrap:wrap; align-items:center; gap:.5rem;">
     <button id="summary-btn" disabled>High level summary</button>
     <button id="sizer-btn" disabled>Audience Sizer</button>
+    <button id="corr-btn" disabled>Correlation Analysis</button>
     <button id="clear-btn" style="display:none;">Clear</button>
   </div>
 </div>
@@ -349,6 +434,33 @@
     </div>
   </div>
   <div class="filters-grid" id="filters-grid"></div>
+</div>
+
+<div class="card" id="corr">
+  <div style="margin-bottom:1.5rem;">
+    <h2 style="font-size:1.1rem;font-weight:700;color:#2d3748;margin-bottom:.25rem;">📊 Correlation Analysis</h2>
+    <p style="font-size:.85rem;color:#718096;">Pearson correlation between numeric columns.</p>
+  </div>
+
+  <p class="corr-section-title">Correlation Heatmap</p>
+  <div class="heatmap-scroll">
+    <table class="heatmap-table" id="heatmap-table"></table>
+  </div>
+
+  <p class="corr-section-title">Scatter Plot</p>
+  <div class="scatter-controls">
+    <select id="scatter-x"><option value="">— Select variable X —</option></select>
+    <span class="scatter-vs">vs</span>
+    <select id="scatter-y"><option value="">— Select variable Y —</option></select>
+  </div>
+  <div class="scatter-wrap">
+    <canvas id="scatter-canvas" width="480" height="360"></canvas>
+    <div class="corr-result" id="corr-result">
+      <div class="corr-coef" id="corr-coef"></div>
+      <div class="corr-label" id="corr-label"></div>
+      <div class="corr-hint" id="corr-hint">Pearson r</div>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -791,6 +903,261 @@ document.getElementById('reset-filters-btn').addEventListener('click', () => {
   renderSizer(parsedHeaders, parsedData);
 });
 
+// ─── Correlation Analysis ─────────────────────────────────────────────────────
+
+function pearson(xs, ys) {
+  const n = xs.length;
+  if (n < 2) return NaN;
+  const mx = xs.reduce((a, b) => a + b, 0) / n;
+  const my = ys.reduce((a, b) => a + b, 0) / n;
+  let num = 0, dx2 = 0, dy2 = 0;
+  for (let i = 0; i < n; i++) {
+    const dx = xs[i] - mx, dy = ys[i] - my;
+    num += dx * dy; dx2 += dx * dx; dy2 += dy * dy;
+  }
+  const denom = Math.sqrt(dx2 * dy2);
+  return denom === 0 ? 0 : num / denom;
+}
+
+// Interpolate color: -1 → red, 0 → white, 1 → blue
+function corrColor(r) {
+  if (isNaN(r)) return '#e2e8f0';
+  const t = Math.max(-1, Math.min(1, r));
+  if (t >= 0) {
+    // white → blue
+    const g = Math.round(255 - t * (255 - 44));
+    const b = Math.round(255 - t * (255 - 182));
+    const red = Math.round(255 - t * (255 - 44));
+    return `rgb(${red},${g},${b})`;
+  } else {
+    // white → red
+    const s = -t;
+    const red = 255;
+    const g = Math.round(255 - s * (255 - 25));
+    const b = Math.round(255 - s * (255 - 28));
+    return `rgb(${red},${g},${b})`;
+  }
+}
+
+function corrDescription(r) {
+  if (isNaN(r)) return { label: 'N/A', cls: 'none' };
+  const abs = Math.abs(r);
+  const dir = r >= 0 ? 'positive' : 'negative';
+  const strength = abs >= 0.7 ? 'High' : abs >= 0.3 ? 'Low' : null;
+  if (!strength) return { label: 'No correlation', cls: 'none' };
+  return { label: `${strength} ${dir} correlation`, cls: dir };
+}
+
+function getNumericColumns(headers, dataRows) {
+  return headers.reduce((acc, hdr, ci) => {
+    const values = dataRows.map(r => (r[ci] ?? '').trim());
+    if (detectColumnType(hdr, values) === 'numeric') {
+      const nums = values.map(v => parseFloat(stripNumeric(v)));
+      acc.push({ name: hdr, ci, nums });
+    }
+    return acc;
+  }, []);
+}
+
+function renderHeatmap(numCols) {
+  const table = document.getElementById('heatmap-table');
+  const n = numCols.length;
+  let html = '<thead><tr><th></th>';
+  numCols.forEach(c => { html += `<th title="${escHtml(c.name)}" style="max-width:80px;overflow:hidden;text-overflow:ellipsis;">${escHtml(c.name)}</th>`; });
+  html += '</tr></thead><tbody>';
+
+  for (let i = 0; i < n; i++) {
+    html += `<tr><th class="row-label" title="${escHtml(numCols[i].name)}">${escHtml(numCols[i].name)}</th>`;
+    for (let j = 0; j < n; j++) {
+      let r, txt;
+      if (i === j) {
+        r = 1; txt = '1.00';
+      } else {
+        // pair up rows where both are non-NaN
+        const pairs = [];
+        for (let k = 0; k < numCols[i].nums.length; k++) {
+          const a = numCols[i].nums[k], b = numCols[j].nums[k];
+          if (!isNaN(a) && !isNaN(b)) pairs.push([a, b]);
+        }
+        r = pairs.length > 1 ? pearson(pairs.map(p => p[0]), pairs.map(p => p[1])) : NaN;
+        txt = isNaN(r) ? 'N/A' : r.toFixed(2);
+      }
+      const bg = corrColor(r);
+      const textColor = Math.abs(isNaN(r) ? 0 : r) > 0.5 ? '#fff' : '#2d3748';
+      html += `<td class="heatmap-cell" style="background:${bg};color:${textColor};" title="${escHtml(numCols[i].name)} vs ${escHtml(numCols[j].name)}: ${txt}">${txt}</td>`;
+    }
+    html += '</tr>';
+  }
+  html += '</tbody>';
+  table.innerHTML = html;
+}
+
+function populateScatterDropdowns(numCols) {
+  const sx = document.getElementById('scatter-x');
+  const sy = document.getElementById('scatter-y');
+  sx.innerHTML = '<option value="">— Select variable X —</option>';
+  sy.innerHTML = '<option value="">— Select variable Y —</option>';
+  numCols.forEach((c, idx) => {
+    sx.innerHTML += `<option value="${idx}">${escHtml(c.name)}</option>`;
+    sy.innerHTML += `<option value="${idx}">${escHtml(c.name)}</option>`;
+  });
+}
+
+function drawScatter(numCols) {
+  const xi = parseInt(document.getElementById('scatter-x').value);
+  const yi = parseInt(document.getElementById('scatter-y').value);
+  if (isNaN(xi) || isNaN(yi)) return;
+
+  const cx = numCols[xi], cy = numCols[yi];
+  const pairs = [];
+  for (let k = 0; k < cx.nums.length; k++) {
+    const a = cx.nums[k], b = cy.nums[k];
+    if (!isNaN(a) && !isNaN(b)) pairs.push([a, b]);
+  }
+  if (pairs.length < 2) return;
+
+  // sample if too many points
+  const sample = pairs.length > 2000
+    ? pairs.filter(() => Math.random() < 2000 / pairs.length)
+    : pairs;
+
+  const xs = sample.map(p => p[0]), ys = sample.map(p => p[1]);
+  const r = pearson(xs, ys);
+
+  const canvas = document.getElementById('scatter-canvas');
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  const PAD = { top: 24, right: 20, bottom: 48, left: 58 };
+  const pw = W - PAD.left - PAD.right, ph = H - PAD.top - PAD.bottom;
+
+  ctx.clearRect(0, 0, W, H);
+
+  const minX = Math.min(...xs), maxX = Math.max(...xs);
+  const minY = Math.min(...ys), maxY = Math.max(...ys);
+  const rangeX = maxX - minX || 1, rangeY = maxY - minY || 1;
+
+  const toCanvasX = v => PAD.left + (v - minX) / rangeX * pw;
+  const toCanvasY = v => PAD.top + ph - (v - minY) / rangeY * ph;
+
+  // grid lines
+  ctx.strokeStyle = '#e2e8f0'; ctx.lineWidth = 1;
+  for (let t = 0; t <= 4; t++) {
+    const cx2 = PAD.left + t / 4 * pw;
+    const cy2 = PAD.top + t / 4 * ph;
+    ctx.beginPath(); ctx.moveTo(cx2, PAD.top); ctx.lineTo(cx2, PAD.top + ph); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(PAD.left, cy2); ctx.lineTo(PAD.left + pw, cy2); ctx.stroke();
+  }
+
+  // axes
+  ctx.strokeStyle = '#a0aec0'; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.moveTo(PAD.left, PAD.top); ctx.lineTo(PAD.left, PAD.top + ph); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(PAD.left, PAD.top + ph); ctx.lineTo(PAD.left + pw, PAD.top + ph); ctx.stroke();
+
+  // axis labels
+  ctx.fillStyle = '#718096'; ctx.font = '11px sans-serif'; ctx.textAlign = 'center';
+  for (let t = 0; t <= 4; t++) {
+    const val = minX + t / 4 * rangeX;
+    const cx2 = PAD.left + t / 4 * pw;
+    ctx.fillText(fmtAxis(val), cx2, PAD.top + ph + 16);
+  }
+  ctx.textAlign = 'right';
+  for (let t = 0; t <= 4; t++) {
+    const val = minY + t / 4 * rangeY;
+    const cy2 = PAD.top + ph - t / 4 * ph;
+    ctx.fillText(fmtAxis(val), PAD.left - 6, cy2 + 4);
+  }
+
+  // axis titles
+  ctx.textAlign = 'center'; ctx.fillStyle = '#4a5568'; ctx.font = 'bold 11px sans-serif';
+  ctx.fillText(cx.name.length > 28 ? cx.name.slice(0, 26) + '…' : cx.name, PAD.left + pw / 2, H - 6);
+  ctx.save(); ctx.translate(13, PAD.top + ph / 2); ctx.rotate(-Math.PI / 2);
+  ctx.fillText(cy.name.length > 28 ? cy.name.slice(0, 26) + '…' : cy.name, 0, 0);
+  ctx.restore();
+
+  // points
+  ctx.fillStyle = 'rgba(229,62,62,0.35)';
+  for (const [x, y] of sample) {
+    ctx.beginPath();
+    ctx.arc(toCanvasX(x), toCanvasY(y), 3, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // regression line
+  const n = xs.length;
+  const mx = xs.reduce((a, b) => a + b, 0) / n;
+  const my = ys.reduce((a, b) => a + b, 0) / n;
+  let num = 0, den = 0;
+  for (let i = 0; i < n; i++) { num += (xs[i] - mx) * (ys[i] - my); den += (xs[i] - mx) ** 2; }
+  const slope = den === 0 ? 0 : num / den;
+  const intercept = my - slope * mx;
+  const yAtMinX = slope * minX + intercept;
+  const yAtMaxX = slope * maxX + intercept;
+
+  ctx.strokeStyle = '#2b6cb0'; ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(toCanvasX(minX), toCanvasY(yAtMinX));
+  ctx.lineTo(toCanvasX(maxX), toCanvasY(yAtMaxX));
+  ctx.stroke();
+
+  // correlation result box
+  const desc = corrDescription(r);
+  const box = document.getElementById('corr-result');
+  box.className = `corr-result ${desc.cls}`;
+  box.style.display = 'block';
+  document.getElementById('corr-coef').textContent = r.toFixed(3);
+  document.getElementById('corr-label').textContent = desc.label;
+  document.getElementById('corr-hint').textContent = `Pearson r  ·  ${pairs.length.toLocaleString()} data points`;
+}
+
+function fmtAxis(n) {
+  if (Math.abs(n) >= 1e6) return (n / 1e6).toFixed(1) + 'M';
+  if (Math.abs(n) >= 1e3) return (n / 1e3).toFixed(1) + 'K';
+  return Number.isInteger(n) ? String(n) : parseFloat(n.toFixed(2)).toString();
+}
+
+function renderCorrelation(headers, dataRows) {
+  const numCols = getNumericColumns(headers, dataRows);
+
+  if (numCols.length < 2) {
+    alert('Need at least 2 numeric columns for correlation analysis.');
+    return;
+  }
+
+  renderHeatmap(numCols);
+  populateScatterDropdowns(numCols);
+  document.getElementById('corr-result').style.display = 'none';
+
+  // clear canvas
+  const canvas = document.getElementById('scatter-canvas');
+  canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
+
+  // wire dropdowns — prevent same variable being chosen for both
+  const sx = document.getElementById('scatter-x');
+  const sy = document.getElementById('scatter-y');
+
+  function syncDropdowns() {
+    const xVal = sx.value, yVal = sy.value;
+    Array.from(sy.options).forEach(o => { o.disabled = o.value !== '' && o.value === xVal; });
+    Array.from(sx.options).forEach(o => { o.disabled = o.value !== '' && o.value === yVal; });
+    if (xVal !== '' && yVal !== '' && xVal !== yVal) drawScatter(numCols);
+    else {
+      canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
+      document.getElementById('corr-result').style.display = 'none';
+    }
+  }
+
+  // Remove old listeners by replacing nodes
+  const newSx = sx.cloneNode(true);
+  const newSy = sy.cloneNode(true);
+  sx.parentNode.replaceChild(newSx, sx);
+  sy.parentNode.replaceChild(newSy, sy);
+  newSx.addEventListener('change', syncDropdowns);
+  newSy.addEventListener('change', syncDropdowns);
+
+  document.getElementById('corr').style.display = 'block';
+  document.getElementById('corr').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
 // ─── App state & wiring ───────────────────────────────────────────────────────
 let parsedHeaders = null;
 let parsedData = null;
@@ -819,9 +1186,11 @@ function finishLoad(file, text) {
   document.getElementById('file-name').textContent = `✔ ${file.name}  (${rows.length - 1} data rows detected)`;
   document.getElementById('summary-btn').disabled = false;
   document.getElementById('sizer-btn').disabled = false;
+  document.getElementById('corr-btn').disabled = false;
   document.getElementById('clear-btn').style.display = 'inline-block';
   document.getElementById('summary').style.display = 'none';
   document.getElementById('sizer').style.display = 'none';
+  document.getElementById('corr').style.display = 'none';
 }
 
 const dropZone = document.getElementById('drop-zone');
@@ -845,15 +1214,21 @@ document.getElementById('sizer-btn').addEventListener('click', () => {
   if (parsedHeaders && parsedData) renderSizer(parsedHeaders, parsedData);
 });
 
+document.getElementById('corr-btn').addEventListener('click', () => {
+  if (parsedHeaders && parsedData) renderCorrelation(parsedHeaders, parsedData);
+});
+
 document.getElementById('clear-btn').addEventListener('click', () => {
   parsedHeaders = null; parsedData = null;
   fileInput.value = '';
   document.getElementById('file-name').textContent = '';
   document.getElementById('summary-btn').disabled = true;
   document.getElementById('sizer-btn').disabled = true;
+  document.getElementById('corr-btn').disabled = true;
   document.getElementById('clear-btn').style.display = 'none';
   document.getElementById('summary').style.display = 'none';
   document.getElementById('sizer').style.display = 'none';
+  document.getElementById('corr').style.display = 'none';
 });
 </script>
 </body>
