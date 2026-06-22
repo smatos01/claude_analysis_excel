@@ -89,18 +89,20 @@
     #clear-btn:hover { background: #cbd5e0; }
     #pptx-btn { background: #d69e2e; color: #fff; margin-left: .25rem; margin-top: 1rem; }
     #pptx-btn:hover { background: #b7791f; }
+    .print-filter-summary { display: none; font-size: .85rem; }
     @media print {
       /* Hide UI chrome */
-      .app-header, #file-name,
+      #file-name,
       #drop-zone, [style*="margin-top:1rem"],
-      button, input, label,
-      .sizer-header button, #reset-filters-btn,
+      button, input, label, select,
+      .sizer-header, #reset-filters-btn,
+      .filter-card .range-inputs, .filter-card .ms-wrapper,
       .corr-detail, .dist-controls { display: none !important; }
       /* Show content sections always */
       #summary, #sizer, #corr, #dist { display: block !important; }
       /* Each section on its own page */
       .card { page-break-inside: avoid; margin-bottom: 1cm; border: none; box-shadow: none; }
-      #summary { page-break-before: always; }
+      #sizer { page-break-before: always; }
       #corr { page-break-before: always; }
       #dist { page-break-before: always; }
       /* Make canvases and grids scale to page */
@@ -108,6 +110,9 @@
       .columns-grid { grid-template-columns: repeat(3, 1fr) !important; }
       .heatmap-wrap { overflow: visible !important; }
       body { background: white; padding: 0.5cm; }
+      /* Print-only filter summary */
+      .print-filter-summary { display: block !important; }
+      .filters-grid { display: none !important; }
     }
 
     /* ── Summary output ── */
@@ -1439,12 +1444,46 @@ document.getElementById('clear-btn').addEventListener('click', () => {
 document.getElementById('pptx-btn').addEventListener('click', downloadPPTX);
 
 function downloadPPTX() {
-  // Show all sections that have been opened before printing
-  ['summary','sizer','corr','dist'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.dataset.printWasHidden = el.style.display === 'none' ? '1' : '0';
-  });
+  // Build print-only filter summary for the sizer section
+  let filterSummaryEl = null;
+  const sizerEl = document.getElementById('sizer');
+  if (sizerEl && columnMeta.length) {
+    filterSummaryEl = document.createElement('div');
+    filterSummaryEl.className = 'print-filter-summary';
+
+    const count = countFiltered();
+    const total = parsedData.length;
+    const pct = total > 0 ? ((count / total) * 100).toFixed(1) : '0.0';
+    filterSummaryEl.innerHTML = `<h2 style="font-size:1.1rem;font-weight:700;color:#2d3748;margin-bottom:.5rem;">🎯 Audience Sizer</h2>
+      <p style="font-weight:600;margin-bottom:.75rem;">Audience size: ${count.toLocaleString()} / ${total.toLocaleString()} (${pct}%)</p>
+      <table style="border-collapse:collapse;width:100%;font-size:.85rem;">
+        <thead><tr style="background:#f7fafc;">
+          <th style="text-align:left;padding:.3rem .6rem;border:1px solid #e2e8f0;">Column</th>
+          <th style="text-align:left;padding:.3rem .6rem;border:1px solid #e2e8f0;">Type</th>
+          <th style="text-align:left;padding:.3rem .6rem;border:1px solid #e2e8f0;">Filter applied</th>
+        </tr></thead>
+        <tbody>${columnMeta.map(m => {
+          const fs = filterState[m.ci];
+          let applied = '';
+          if (m.type === 'numeric') {
+            applied = `${fs.from} → ${fs.to}${fs.from === m.min && fs.to === m.max ? ' (all)' : ''}`;
+          } else if (m.type === 'date') {
+            applied = `${fs.from} → ${fs.to}${fs.from === m.minDate && fs.to === m.maxDate ? ' (all)' : ''}`;
+          } else {
+            const sel = [...fs.selected];
+            applied = sel.length === m.options.length ? 'All selected' : sel.join(', ') || 'None selected';
+          }
+          return `<tr><td style="padding:.3rem .6rem;border:1px solid #e2e8f0;">${escHtml(m.name)}</td>
+            <td style="padding:.3rem .6rem;border:1px solid #e2e8f0;">${m.type}</td>
+            <td style="padding:.3rem .6rem;border:1px solid #e2e8f0;">${escHtml(applied)}</td></tr>`;
+        }).join('')}</tbody>
+      </table>`;
+    sizerEl.insertBefore(filterSummaryEl, sizerEl.firstChild);
+  }
+
   window.print();
+
+  if (filterSummaryEl) filterSummaryEl.remove();
 }
 </script>
 </body>
