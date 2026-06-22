@@ -1132,13 +1132,13 @@ function renderCorrelation(headers, dataRows) {
   canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
 
   // wire dropdowns — prevent same variable being chosen for both
-  const sx = document.getElementById('scatter-x');
-  const sy = document.getElementById('scatter-y');
-
+  // Re-query by ID each time so we always read the live element values
   function syncDropdowns() {
-    const xVal = sx.value, yVal = sy.value;
-    Array.from(sy.options).forEach(o => { o.disabled = o.value !== '' && o.value === xVal; });
-    Array.from(sx.options).forEach(o => { o.disabled = o.value !== '' && o.value === yVal; });
+    const elX = document.getElementById('scatter-x');
+    const elY = document.getElementById('scatter-y');
+    const xVal = elX.value, yVal = elY.value;
+    Array.from(elY.options).forEach(o => { o.disabled = o.value !== '' && o.value === xVal; });
+    Array.from(elX.options).forEach(o => { o.disabled = o.value !== '' && o.value === yVal; });
     if (xVal !== '' && yVal !== '' && xVal !== yVal) drawScatter(numCols);
     else {
       canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
@@ -1146,11 +1146,13 @@ function renderCorrelation(headers, dataRows) {
     }
   }
 
-  // Remove old listeners by replacing nodes
-  const newSx = sx.cloneNode(true);
-  const newSy = sy.cloneNode(true);
-  sx.parentNode.replaceChild(newSx, sx);
-  sy.parentNode.replaceChild(newSy, sy);
+  // Replace nodes to drop any stale listeners from a previous render
+  const oldSx = document.getElementById('scatter-x');
+  const oldSy = document.getElementById('scatter-y');
+  const newSx = oldSx.cloneNode(true);
+  const newSy = oldSy.cloneNode(true);
+  oldSx.parentNode.replaceChild(newSx, oldSx);
+  oldSy.parentNode.replaceChild(newSy, oldSy);
   newSx.addEventListener('change', syncDropdowns);
   newSy.addEventListener('change', syncDropdowns);
 
