@@ -82,6 +82,9 @@
     #corr-btn { background: #e53e3e; color: #fff; margin-top: 1rem; margin-left: .75rem; }
     #corr-btn:not(:disabled):hover { background: #c53030; }
 
+    #dist-btn { background: #38a169; color: #fff; margin-top: 1rem; margin-left: .75rem; }
+    #dist-btn:not(:disabled):hover { background: #2f855a; }
+
     #clear-btn { background: #e2e8f0; color: #4a5568; margin-left: .75rem; margin-top: 1rem; }
     #clear-btn:hover { background: #cbd5e0; }
 
@@ -361,6 +364,30 @@
     .corr-label { font-size: .95rem; font-weight: 700; margin-top: .4rem; color: #4a5568; }
     .corr-hint  { font-size: .78rem; color: #a0aec0; margin-top: .2rem; }
 
+    /* ── Distribution view ── */
+    #dist { display: none; }
+    .dist-controls {
+      display: flex;
+      gap: 1rem;
+      align-items: center;
+      flex-wrap: wrap;
+      margin-bottom: 1.5rem;
+    }
+    .dist-controls label { font-size: .82rem; font-weight: 600; color: #4a5568; }
+    .dist-controls select {
+      border: 1px solid #cbd5e0;
+      border-radius: 6px;
+      padding: .45rem .7rem;
+      font-size: .88rem;
+      color: #2d3748;
+      background: #fff;
+      cursor: pointer;
+      min-width: 180px;
+    }
+    .dist-controls select:focus { outline: none; border-color: #38a169; box-shadow: 0 0 0 2px rgba(56,161,105,.15); }
+    .dist-controls select:disabled { opacity: .45; cursor: not-allowed; }
+    #box-canvas { border: 1px solid #e2e8f0; border-radius: 8px; background: #fff; max-width: 100%; display: block; }
+
     /* Scatter plot */
     .corr-bottom {
       display: none;
@@ -397,6 +424,7 @@
     <button id="summary-btn" disabled>High level summary</button>
     <button id="sizer-btn" disabled>Audience Sizer</button>
     <button id="corr-btn" disabled>Correlation Analysis</button>
+    <button id="dist-btn" disabled>Distribution View</button>
     <button id="clear-btn" style="display:none;">Clear</button>
   </div>
 </div>
@@ -440,6 +468,24 @@
   <div class="corr-bottom" id="corr-bottom">
     <canvas id="scatter-canvas" width="500" height="370"></canvas>
   </div>
+</div>
+
+<div class="card" id="dist">
+  <div style="margin-bottom:1.25rem;">
+    <h2 style="font-size:1.1rem;font-weight:700;color:#2d3748;margin-bottom:.25rem;">📦 Distribution View</h2>
+    <p style="font-size:.85rem;color:#718096;">Box plot of a numeric column, optionally split by a categorical variable.</p>
+  </div>
+  <div class="dist-controls">
+    <div>
+      <label for="dist-num">Numeric column</label><br>
+      <select id="dist-num"><option value="">— Select numeric column —</option></select>
+    </div>
+    <div>
+      <label for="dist-cat">Split by category <span style="font-weight:400;color:#a0aec0;">(optional)</span></label><br>
+      <select id="dist-cat" disabled><option value="">— No split —</option></select>
+    </div>
+  </div>
+  <canvas id="box-canvas"></canvas>
 </div>
 
 <script>
@@ -1089,6 +1135,195 @@ function fmtAxis(n) {
   return Number.isInteger(n) ? String(n) : parseFloat(n.toFixed(2)).toString();
 }
 
+// ─── Distribution View ───────────────────────────────────────────────────────
+
+function boxStats(nums) {
+  const sorted = [...nums].sort((a, b) => a - b);
+  const n = sorted.length;
+  const q1 = sorted[Math.floor(n * 0.25)];
+  const q2 = sorted[Math.floor(n * 0.5)];
+  const q3 = sorted[Math.floor(n * 0.75)];
+  const iqr = q3 - q1;
+  const loFence = q1 - 1.5 * iqr;
+  const hiFence = q3 + 1.5 * iqr;
+  const whiskerLo = sorted.find(v => v >= loFence) ?? q1;
+  const whiskerHi = [...sorted].reverse().find(v => v <= hiFence) ?? q3;
+  const outliers = sorted.filter(v => v < loFence || v > hiFence);
+  return { q1, q2, q3, whiskerLo, whiskerHi, outliers, min: sorted[0], max: sorted[n - 1] };
+}
+
+function renderDistribution(headers, dataRows) {
+  // Collect numeric and categorical columns
+  const numCols = [], catCols = [];
+  headers.forEach((hdr, ci) => {
+    const values = dataRows.map(r => (r[ci] ?? '').trim());
+    const type = detectColumnType(hdr, values);
+    if (type === 'numeric') numCols.push({ name: hdr, ci });
+    else if (type === 'category') catCols.push({ name: hdr, ci });
+  });
+
+  if (numCols.length === 0) { alert('No numeric columns found.'); return; }
+
+  // Populate dropdowns
+  const numSel = document.getElementById('dist-num');
+  const catSel = document.getElementById('dist-cat');
+  numSel.innerHTML = '<option value="">— Select numeric column —</option>';
+  catSel.innerHTML = '<option value="">— No split —</option>';
+  numCols.forEach((c, idx) => { numSel.innerHTML += `<option value="${idx}">${escHtml(c.name)}</option>`; });
+  catCols.forEach((c, idx) => { catSel.innerHTML += `<option value="${idx}">${escHtml(c.name)}</option>`; });
+
+  catSel.disabled = true;
+
+  function onNumChange() {
+    const hasNum = numSel.value !== '';
+    catSel.disabled = !hasNum;
+    if (!hasNum) { catSel.value = ''; clearBoxCanvas(); return; }
+    drawBoxPlot(numCols, catCols, dataRows);
+  }
+
+  function onCatChange() {
+    if (numSel.value === '') return;
+    drawBoxPlot(numCols, catCols, dataRows);
+  }
+
+  numSel.onchange = onNumChange;
+  catSel.onchange = onCatChange;
+
+  clearBoxCanvas();
+  document.getElementById('dist').style.display = 'block';
+  document.getElementById('dist').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function clearBoxCanvas() {
+  const canvas = document.getElementById('box-canvas');
+  canvas.width = 0; canvas.height = 0;
+}
+
+function drawBoxPlot(numCols, catCols, dataRows) {
+  const numIdx = parseInt(document.getElementById('dist-num').value);
+  const catRaw = document.getElementById('dist-cat').value;
+  const catIdx = catRaw === '' ? null : parseInt(catRaw);
+
+  const numCol = numCols[numIdx];
+  const allNums = dataRows.map(r => parseFloat(stripNumeric((r[numCol.ci] ?? '').trim()))).filter(v => !isNaN(v));
+  if (allNums.length === 0) return;
+
+  // Build groups
+  let groups; // [{ label, nums }]
+  if (catIdx === null) {
+    groups = [{ label: numCol.name, nums: allNums }];
+  } else {
+    const catCol = catCols[catIdx];
+    const freq = {};
+    dataRows.forEach(r => {
+      const cat = (r[catCol.ci] ?? '').trim() || '(empty)';
+      if (!freq[cat]) freq[cat] = 0;
+      freq[cat]++;
+    });
+    // top 12 categories by count
+    const topCats = Object.entries(freq).sort((a, b) => b[1] - a[1]).slice(0, 12).map(e => e[0]);
+    groups = topCats.map(cat => {
+      const nums = dataRows
+        .filter(r => ((r[catCol.ci] ?? '').trim() || '(empty)') === cat)
+        .map(r => parseFloat(stripNumeric((r[numCol.ci] ?? '').trim())))
+        .filter(v => !isNaN(v));
+      return { label: cat, nums };
+    }).filter(g => g.nums.length > 0);
+  }
+
+  // Canvas sizing
+  const PAD = { top: 30, right: 20, bottom: 70, left: 70 };
+  const boxW = Math.max(24, Math.min(60, Math.floor(560 / groups.length) - 20));
+  const canvasW = Math.max(480, groups.length * (boxW + 20) + PAD.left + PAD.right + 40);
+  const canvasH = 420;
+
+  const canvas = document.getElementById('box-canvas');
+  canvas.width = canvasW;
+  canvas.height = canvasH;
+  const ctx = canvas.getContext('2d');
+  const pw = canvasW - PAD.left - PAD.right;
+  const ph = canvasH - PAD.top - PAD.bottom;
+
+  ctx.clearRect(0, 0, canvasW, canvasH);
+
+  // Global y scale across all groups
+  const allVals = groups.flatMap(g => g.nums);
+  const globalMin = Math.min(...allVals);
+  const globalMax = Math.max(...allVals);
+  const padding = (globalMax - globalMin) * 0.05 || 1;
+  const yMin = globalMin - padding, yMax = globalMax + padding;
+  const toY = v => PAD.top + ph - (v - yMin) / (yMax - yMin) * ph;
+
+  // Grid + Y axis ticks
+  ctx.strokeStyle = '#e2e8f0'; ctx.lineWidth = 1;
+  const ticks = 5;
+  for (let t = 0; t <= ticks; t++) {
+    const val = yMin + (t / ticks) * (yMax - yMin);
+    const y = toY(val);
+    ctx.beginPath(); ctx.moveTo(PAD.left, y); ctx.lineTo(PAD.left + pw, y); ctx.stroke();
+    ctx.fillStyle = '#718096'; ctx.font = '11px sans-serif'; ctx.textAlign = 'right';
+    ctx.fillText(fmtAxis(val), PAD.left - 6, y + 4);
+  }
+
+  // Y axis line
+  ctx.strokeStyle = '#a0aec0'; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.moveTo(PAD.left, PAD.top); ctx.lineTo(PAD.left, PAD.top + ph); ctx.stroke();
+
+  // Y axis title
+  ctx.save(); ctx.translate(14, PAD.top + ph / 2); ctx.rotate(-Math.PI / 2);
+  ctx.fillStyle = '#4a5568'; ctx.font = 'bold 11px sans-serif'; ctx.textAlign = 'center';
+  const yTitle = numCol.name.length > 28 ? numCol.name.slice(0, 26) + '…' : numCol.name;
+  ctx.fillText(yTitle, 0, 0); ctx.restore();
+
+  // Draw each box plot
+  const slotW = pw / groups.length;
+  const COLORS = ['#4299e1','#ed8936','#48bb78','#9f7aea','#f56565','#38b2ac','#667eea','#d69e2e','#fc8181','#68d391','#b794f4','#4fd1c5'];
+
+  groups.forEach((g, gi) => {
+    if (g.nums.length === 0) return;
+    const stats = boxStats(g.nums);
+    const cx = PAD.left + slotW * gi + slotW / 2;
+    const color = COLORS[gi % COLORS.length];
+
+    // Whisker lines
+    ctx.strokeStyle = color; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(cx, toY(stats.whiskerHi)); ctx.lineTo(cx, toY(stats.q3)); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(cx, toY(stats.q1)); ctx.lineTo(cx, toY(stats.whiskerLo)); ctx.stroke();
+
+    // Whisker caps
+    const capW = boxW * 0.4;
+    ctx.beginPath(); ctx.moveTo(cx - capW, toY(stats.whiskerHi)); ctx.lineTo(cx + capW, toY(stats.whiskerHi)); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(cx - capW, toY(stats.whiskerLo)); ctx.lineTo(cx + capW, toY(stats.whiskerLo)); ctx.stroke();
+
+    // IQR box
+    const boxTop = toY(stats.q3), boxBot = toY(stats.q1);
+    ctx.fillStyle = color + '33'; // 20% opacity
+    ctx.fillRect(cx - boxW / 2, boxTop, boxW, boxBot - boxTop);
+    ctx.strokeStyle = color; ctx.lineWidth = 1.5;
+    ctx.strokeRect(cx - boxW / 2, boxTop, boxW, boxBot - boxTop);
+
+    // Median line
+    ctx.strokeStyle = color; ctx.lineWidth = 2.5;
+    ctx.beginPath(); ctx.moveTo(cx - boxW / 2, toY(stats.q2)); ctx.lineTo(cx + boxW / 2, toY(stats.q2)); ctx.stroke();
+
+    // Outliers
+    ctx.fillStyle = color;
+    stats.outliers.forEach(v => {
+      ctx.beginPath(); ctx.arc(cx, toY(v), 2.5, 0, Math.PI * 2); ctx.fill();
+    });
+
+    // X label
+    const lbl = g.label.length > 14 ? g.label.slice(0, 12) + '…' : g.label;
+    ctx.fillStyle = '#4a5568'; ctx.font = '11px sans-serif'; ctx.textAlign = 'center';
+    ctx.save(); ctx.translate(cx, PAD.top + ph + 14); ctx.rotate(-Math.PI / 6);
+    ctx.fillText(lbl, 0, 0); ctx.restore();
+
+    // Median value label inside box
+    ctx.fillStyle = '#2d3748'; ctx.font = 'bold 10px sans-serif'; ctx.textAlign = 'center';
+    ctx.fillText(fmtAxis(stats.q2), cx, toY(stats.q2) - 5);
+  });
+}
+
 // ─── App state & wiring ───────────────────────────────────────────────────────
 let parsedHeaders = null;
 let parsedData = null;
@@ -1118,10 +1353,12 @@ function finishLoad(file, text) {
   document.getElementById('summary-btn').disabled = false;
   document.getElementById('sizer-btn').disabled = false;
   document.getElementById('corr-btn').disabled = false;
+  document.getElementById('dist-btn').disabled = false;
   document.getElementById('clear-btn').style.display = 'inline-block';
   document.getElementById('summary').style.display = 'none';
   document.getElementById('sizer').style.display = 'none';
   document.getElementById('corr').style.display = 'none';
+  document.getElementById('dist').style.display = 'none';
 }
 
 const dropZone = document.getElementById('drop-zone');
@@ -1149,6 +1386,10 @@ document.getElementById('corr-btn').addEventListener('click', () => {
   if (parsedHeaders && parsedData) renderCorrelation(parsedHeaders, parsedData);
 });
 
+document.getElementById('dist-btn').addEventListener('click', () => {
+  if (parsedHeaders && parsedData) renderDistribution(parsedHeaders, parsedData);
+});
+
 document.getElementById('clear-btn').addEventListener('click', () => {
   parsedHeaders = null; parsedData = null;
   fileInput.value = '';
@@ -1156,10 +1397,12 @@ document.getElementById('clear-btn').addEventListener('click', () => {
   document.getElementById('summary-btn').disabled = true;
   document.getElementById('sizer-btn').disabled = true;
   document.getElementById('corr-btn').disabled = true;
+  document.getElementById('dist-btn').disabled = true;
   document.getElementById('clear-btn').style.display = 'none';
   document.getElementById('summary').style.display = 'none';
   document.getElementById('sizer').style.display = 'none';
   document.getElementById('corr').style.display = 'none';
+  document.getElementById('dist').style.display = 'none';
 });
 </script>
 </body>
