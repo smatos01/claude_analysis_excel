@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>CSV Analyser</title>
+  <title>Single Customer View Analyser</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -15,11 +15,26 @@
       padding: 2rem;
     }
 
+    .app-header { margin-bottom: 1.5rem; }
     h1 {
       font-size: 1.75rem;
       font-weight: 700;
-      margin-bottom: 1.5rem;
       color: #2d3748;
+      display: flex;
+      align-items: center;
+      gap: .5rem;
+      margin-bottom: .2rem;
+    }
+    .subtitle {
+      font-size: .95rem;
+      font-weight: 600;
+      color: #718096;
+      margin-bottom: .75rem;
+    }
+    .description {
+      font-size: .9rem;
+      color: #4a5568;
+      max-width: 560px;
     }
 
     .card {
@@ -169,7 +184,11 @@
 </head>
 <body>
 
-<h1>CSV Analyser</h1>
+<div class="app-header">
+  <h1>🔍 Single Customer View Analyser</h1>
+  <p class="subtitle">CSV Analyser</p>
+  <p class="description">This is a simple app that allows you to upload a clean Single Customer View CSV file to analyse it.</p>
+</div>
 
 <div class="card">
   <div id="drop-zone" role="button" tabindex="0" aria-label="Upload CSV file">
