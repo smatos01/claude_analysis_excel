@@ -291,9 +291,10 @@ function dateStats(values, totalRows) {
   return { min: fmtDate(dates[0]), max: fmtDate(dates[dates.length - 1]), years };
 }
 
-// Strip currency symbols, thousands separators before numeric parsing
+// Strip currency symbols, thousands separators, and the Unicode replacement char
+// (£ in Windows-1252 files read as UTF-8 becomes �)
 function stripNumeric(v) {
-  return v.replace(/[£$€¥₹,]/g, '').trim();
+  return v.replace(/[£$€¥₹,�]/g, '').trim();
 }
 
 function isNumericColumn(values) {
@@ -456,17 +457,28 @@ function loadFile(file) {
   }
   const reader = new FileReader();
   reader.onload = e => {
-    const text = e.target.result;
-    const rows = parseCSV(text);
-    if (rows.length < 2) { alert('CSV must have at least a header row and one data row.'); return; }
-    parsedHeaders = rows[0];
-    parsedData = rows.slice(1);
-    document.getElementById('file-name').textContent = `✔ ${file.name}  (${rows.length - 1} data rows detected)`;
-    document.getElementById('summary-btn').disabled = false;
-    document.getElementById('clear-btn').style.display = 'inline-block';
-    document.getElementById('summary').style.display = 'none';
+    let text = e.target.result;
+    // If UTF-8 produced replacement chars, re-read as Windows-1252
+    if (text.includes('�')) {
+      const reader2 = new FileReader();
+      reader2.onload = e2 => finishLoad(file, e2.target.result);
+      reader2.readAsText(file, 'windows-1252');
+      return;
+    }
+    finishLoad(file, text);
   };
   reader.readAsText(file);
+}
+
+function finishLoad(file, text) {
+  const rows = parseCSV(text);
+  if (rows.length < 2) { alert('CSV must have at least a header row and one data row.'); return; }
+  parsedHeaders = rows[0];
+  parsedData = rows.slice(1);
+  document.getElementById('file-name').textContent = `✔ ${file.name}  (${rows.length - 1} data rows detected)`;
+  document.getElementById('summary-btn').disabled = false;
+  document.getElementById('clear-btn').style.display = 'inline-block';
+  document.getElementById('summary').style.display = 'none';
 }
 
 // Drop zone
