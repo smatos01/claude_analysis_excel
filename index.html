@@ -1509,8 +1509,7 @@ function downloadPPTX() {
         (Array.from(fg.querySelectorAll('input[type=checkbox]:checked')).map(cb=>cb.value).join(', ')||'(all)');
       lines.push(label+': '+val);
     });
-    if (lines.length) { const el=document.createElement('div'); el.className='print-body'; el.textContent=lines.join('
-'); p2.appendChild(el); }
+    if (lines.length) { const el=document.createElement('div'); el.className='print-body'; el.textContent=lines.join('\n'); p2.appendChild(el); }
   }
 
   // Correlation
