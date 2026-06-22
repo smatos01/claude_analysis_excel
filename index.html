@@ -111,6 +111,7 @@
     }
     .col-card.type-id       { border-color: #9f7aea; background: #faf5ff; }
     .col-card.type-numeric  { border-color: #48bb78; background: #f0fff4; }
+    .col-card.type-date     { border-color: #4299e1; background: #ebf8ff; }
     .col-card.type-category { border-color: #ed8936; background: #fffaf0; }
 
     .col-card h3 {
@@ -131,7 +132,19 @@
     }
     .type-id       .col-type-badge { background: #9f7aea; color: #fff; }
     .type-numeric  .col-type-badge { background: #48bb78; color: #fff; }
+    .type-date     .col-type-badge { background: #4299e1; color: #fff; }
     .type-category .col-type-badge { background: #ed8936; color: #fff; }
+
+    .null-row { margin-top: .5rem; padding-top: .5rem; border-top: 1px solid rgba(0,0,0,.07); }
+    .null-pill {
+      display: inline-block;
+      background: #fed7d7;
+      color: #c53030;
+      font-size: .75rem;
+      font-weight: 700;
+      border-radius: 4px;
+      padding: .1rem .45rem;
+    }
 
     .stat-row { display: flex; justify-content: space-between; font-size: .85rem; margin-bottom: .25rem; }
     .stat-row .sk { color: #718096; }
@@ -231,6 +244,38 @@ function isIdColumn(name, values) {
   return ratio > 0.95 && (looksNumeric || looksUUID);
 }
 
+// Common date formats: YYYY-MM-DD, DD/MM/YYYY, MM/DD/YYYY, DD-Mon-YYYY, ISO 8601, etc.
+const DATE_RE = /^\d{4}-\d{2}-\d{2}([ T]\d{2}:\d{2}(:\d{2})?.*)?$|^\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}$|^\d{1,2}[ \-](jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*[ \-]\d{2,4}$/i;
+
+function parseDate(v) {
+  if (!DATE_RE.test(v)) return null;
+  const d = new Date(v);
+  return isNaN(d.getTime()) ? null : d;
+}
+
+function isDateColumn(values) {
+  const nonEmpty = values.filter(v => v !== '');
+  if (nonEmpty.length === 0) return false;
+  const dateCount = nonEmpty.filter(v => parseDate(v) !== null).length;
+  return dateCount / nonEmpty.length >= 0.85;
+}
+
+function dateStats(values, totalRows) {
+  const dates = values.map(v => parseDate(v)).filter(Boolean);
+  if (dates.length === 0) return null;
+  dates.sort((a, b) => a - b);
+  const fmtDate = d => d.toISOString().slice(0, 10);
+  const yearFreq = {};
+  for (const d of dates) {
+    const y = d.getFullYear();
+    yearFreq[y] = (yearFreq[y] || 0) + 1;
+  }
+  const years = Object.entries(yearFreq)
+    .sort((a, b) => a[0] - b[0])
+    .map(([yr, cnt]) => ({ yr, cnt, pct: cnt / totalRows * 100 }));
+  return { min: fmtDate(dates[0]), max: fmtDate(dates[dates.length - 1]), years };
+}
+
 function isNumericColumn(values) {
   const nonEmpty = values.filter(v => v !== '');
   if (nonEmpty.length === 0) return false;
@@ -287,6 +332,11 @@ function renderSummary(headers, dataRows) {
 
   headers.forEach((hdr, ci) => {
     const values = dataRows.map(r => (r[ci] ?? '').trim());
+    const nullCount = values.filter(v => v === '' || v.toLowerCase() === 'null' || v.toLowerCase() === 'na' || v.toLowerCase() === 'n/a').length;
+    const nullHtml = nullCount > 0
+      ? `<div class="stat-row null-row"><span class="sk">Null / empty</span><span class="sv"><span class="null-pill">${nullCount.toLocaleString()} (${(nullCount/nRows*100).toFixed(1)}%)</span></span></div>`
+      : '';
+
     let type, cardClass, html;
 
     if (isIdColumn(hdr, values)) {
@@ -295,7 +345,32 @@ function renderSummary(headers, dataRows) {
       html = `
         <div class="stat-row"><span class="sk">Unique values</span><span class="sv">${unique.toLocaleString()}</span></div>
         <div class="stat-row"><span class="sk">Notes</span><span class="sv">Identifier column</span></div>
+        ${nullHtml}
       `;
+    } else if (isDateColumn(values)) {
+      type = 'Date'; cardClass = 'type-date';
+      const s = dateStats(values, nRows);
+      const barColor = '#4299e1';
+      const maxYearCnt = s ? Math.max(...s.years.map(y => y.cnt)) : 1;
+      const yearRows = s ? s.years.map(y => `
+        <tr>
+          <td style="padding-right:.5rem;">${y.yr}</td>
+          <td style="width:80px;">
+            <div class="bar-bg"><div class="bar-fill" style="width:${(y.cnt/maxYearCnt*100).toFixed(1)}%;background:${barColor}"></div></div>
+          </td>
+          <td>${y.cnt.toLocaleString()}</td>
+          <td>${y.pct.toFixed(1)}%</td>
+        </tr>
+      `).join('') : '';
+      html = s ? `
+        <div class="stat-row"><span class="sk">Min date</span><span class="sv">${s.min}</span></div>
+        <div class="stat-row"><span class="sk">Max date</span><span class="sv">${s.max}</span></div>
+        <table class="cat-table" style="margin-top:.6rem;">
+          <thead><tr><th>Year</th><th></th><th>Count</th><th>%</th></tr></thead>
+          <tbody>${yearRows}</tbody>
+        </table>
+        ${nullHtml}
+      ` : '<em>No valid dates found</em>';
     } else if (isNumericColumn(values)) {
       type = 'Numeric'; cardClass = 'type-numeric';
       const s = numStats(values);
@@ -304,13 +379,14 @@ function renderSummary(headers, dataRows) {
         <div class="stat-row"><span class="sk">Mean</span><span class="sv">${fmt(s.mean)}</span></div>
         <div class="stat-row"><span class="sk">Max</span><span class="sv">${fmt(s.max)}</span></div>
         <div class="stat-row"><span class="sk">Non-null count</span><span class="sv">${s.count.toLocaleString()}</span></div>
+        ${nullHtml}
       ` : '<em>No valid numbers found</em>';
     } else {
       type = 'Categorical'; cardClass = 'type-category';
       const cats = catStats(values, nRows);
       const show = cats.slice(0, 8);
       const maxCnt = show[0]?.cnt || 1;
-      const rows = show.map(c => `
+      const tableRows = show.map(c => `
         <tr>
           <td style="padding-right:.5rem;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${escHtml(c.val)}">${escHtml(c.val)}</td>
           <td style="width:80px;">
@@ -324,9 +400,10 @@ function renderSummary(headers, dataRows) {
       html = `
         <table class="cat-table">
           <thead><tr><th>Value</th><th></th><th>Count</th><th>%</th></tr></thead>
-          <tbody>${rows}</tbody>
+          <tbody>${tableRows}</tbody>
         </table>
         ${more}
+        ${nullHtml}
       `;
     }
 
