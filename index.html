@@ -505,9 +505,10 @@ function isIdColumn(name, values) {
   if (nonEmpty.length === 0) return false;
   const unique = new Set(nonEmpty).size;
   const ratio = unique / nonEmpty.length;
-  const looksNumeric = nonEmpty.every(v => /^\d+$/.test(v));
-  const looksUUID = nonEmpty.every(v => /^[0-9a-f-]{8,}$/i.test(v));
-  return ratio > 0.95 && (looksNumeric || looksUUID);
+  // Only flag as ID by value heuristic when values look like UUIDs (with dashes).
+  // Plain numbers (e.g. salaries) are highly unique too, so we leave those to numeric detection.
+  const looksUUID = nonEmpty.every(v => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v));
+  return ratio > 0.95 && looksUUID;
 }
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}([ T]\d{2}:\d{2}(:\d{2})?.*)?$|^\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}$|^\d{1,2}[ \-](jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*[ \-]\d{2,4}$/i;
