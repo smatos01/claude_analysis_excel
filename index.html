@@ -244,11 +244,26 @@ function isIdColumn(name, values) {
   return ratio > 0.95 && (looksNumeric || looksUUID);
 }
 
-// Common date formats: YYYY-MM-DD, DD/MM/YYYY, MM/DD/YYYY, DD-Mon-YYYY, ISO 8601, etc.
+// Common date formats: YYYY-MM-DD, DD/MM/YYYY, DD-Mon-YYYY, ISO 8601, etc.
 const DATE_RE = /^\d{4}-\d{2}-\d{2}([ T]\d{2}:\d{2}(:\d{2})?.*)?$|^\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}$|^\d{1,2}[ \-](jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*[ \-]\d{2,4}$/i;
 
 function parseDate(v) {
   if (!DATE_RE.test(v)) return null;
+  // Handle dd/mm/yyyy and dd-mm-yyyy explicitly to avoid browser misinterpretation
+  const dmySlash = v.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
+  if (dmySlash) {
+    const [, d, m, y] = dmySlash;
+    const year = y.length === 2 ? 2000 + parseInt(y) : parseInt(y);
+    const date = new Date(year, parseInt(m) - 1, parseInt(d));
+    return isNaN(date.getTime()) ? null : date;
+  }
+  const dmyDash = v.match(/^(\d{1,2})-(\d{1,2})-(\d{2,4})$/);
+  if (dmyDash) {
+    const [, d, m, y] = dmyDash;
+    const year = y.length === 2 ? 2000 + parseInt(y) : parseInt(y);
+    const date = new Date(year, parseInt(m) - 1, parseInt(d));
+    return isNaN(date.getTime()) ? null : date;
+  }
   const d = new Date(v);
   return isNaN(d.getTime()) ? null : d;
 }
@@ -276,15 +291,20 @@ function dateStats(values, totalRows) {
   return { min: fmtDate(dates[0]), max: fmtDate(dates[dates.length - 1]), years };
 }
 
+// Strip currency symbols, thousands separators before numeric parsing
+function stripNumeric(v) {
+  return v.replace(/[£$€¥₹,]/g, '').trim();
+}
+
 function isNumericColumn(values) {
   const nonEmpty = values.filter(v => v !== '');
   if (nonEmpty.length === 0) return false;
-  const numericCount = nonEmpty.filter(v => !isNaN(parseFloat(v)) && isFinite(v)).length;
+  const numericCount = nonEmpty.filter(v => { const s = stripNumeric(v); return s !== '' && !isNaN(parseFloat(s)) && isFinite(s); }).length;
   return numericCount / nonEmpty.length >= 0.85;
 }
 
 function numStats(values) {
-  const nums = values.map(v => parseFloat(v)).filter(v => !isNaN(v));
+  const nums = values.map(v => parseFloat(stripNumeric(v))).filter(v => !isNaN(v));
   if (nums.length === 0) return null;
   const sorted = [...nums].sort((a, b) => a - b);
   const sum = nums.reduce((a, b) => a + b, 0);
