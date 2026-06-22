@@ -89,6 +89,21 @@
     #clear-btn:hover { background: #cbd5e0; }
     #pptx-btn { background: #d69e2e; color: #fff; margin-left: .25rem; margin-top: 1rem; }
     #pptx-btn:hover { background: #b7791f; }
+    @media print {
+      body > *:not(#print-root) { display: none !important; }
+      #print-root { display: block !important; }
+      .print-page { page-break-after: always; padding: 1.5cm; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+      .print-page:last-child { page-break-after: avoid; }
+      .print-h1 { font-size: 28pt; font-weight: bold; color: #1a202c; margin-bottom: .4cm; }
+      .print-h2 { font-size: 18pt; font-weight: bold; margin-bottom: .3cm; }
+      .print-sub { font-size: 11pt; color: #4a5568; margin-bottom: .3cm; }
+      .print-body { font-size: 9pt; color: #1a202c; white-space: pre-wrap; line-height: 1.5; }
+      .print-img { max-width: 100%; height: auto; display: block; margin-top: .3cm; }
+      table.print-table { border-collapse: collapse; width: 100%; font-size: 8pt; margin-top: .3cm; }
+      table.print-table th { background: #4299e1; color: #fff; padding: 4px 6px; text-align: left; }
+      table.print-table td { border: 1px solid #e2e8f0; padding: 3px 6px; }
+      table.print-table tr:nth-child(even) td { background: #f7fafc; }
+    }
 
     /* ── Summary output ── */
     #summary { display: none; }
@@ -428,7 +443,7 @@
     <button id="corr-btn" disabled>Correlation Analysis</button>
     <button id="dist-btn" disabled>Distribution View</button>
     <button id="clear-btn" style="display:none;">Clear</button>
-    <button id="pptx-btn" style="display:none;">Download as PPTX</button>
+    <button id="pptx-btn" style="display:none;">Export as PDF</button>
   </div>
 </div>
 
@@ -1418,219 +1433,130 @@ document.getElementById('clear-btn').addEventListener('click', () => {
 
 document.getElementById('pptx-btn').addEventListener('click', downloadPPTX);
 
-// ─── Minimal PPTX generator (no external dependencies) ──────────────────────
-const _CRC32 = (() => {
-  const t = new Uint32Array(256);
-  for (let i = 0; i < 256; i++) {
-    let c = i;
-    for (let j = 0; j < 8; j++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
-    t[i] = c;
-  }
-  return t;
-})();
-
-function _crc32(buf) {
-  let c = 0xFFFFFFFF;
-  for (let i = 0; i < buf.length; i++) c = _CRC32[(c ^ buf[i]) & 0xFF] ^ (c >>> 8);
-  return (c ^ 0xFFFFFFFF) >>> 0;
-}
-
-function _buildZip(files) {
-  const enc = new TextEncoder();
-  const entries = [];
-  let offset = 0;
-  const parts = [];
-  for (const [name, data] of Object.entries(files)) {
-    const nb = enc.encode(name);
-    const db = typeof data === 'string' ? enc.encode(data) : data;
-    const crc = _crc32(db);
-    const lfh = new Uint8Array(30 + nb.length);
-    const dv = new DataView(lfh.buffer);
-    dv.setUint32(0, 0x04034B50, true); dv.setUint16(4, 20, true);
-    dv.setUint16(8, 0, true); // Store
-    dv.setUint32(14, crc, true); dv.setUint32(18, db.length, true); dv.setUint32(22, db.length, true);
-    dv.setUint16(26, nb.length, true); lfh.set(nb, 30);
-    entries.push({ nb, crc, size: db.length, offset });
-    offset += lfh.length + db.length;
-    parts.push(lfh, db);
-  }
-  const cdParts = [];
-  const cdOffset = offset;
-  for (const { nb, crc, size, offset: lo } of entries) {
-    const cde = new Uint8Array(46 + nb.length);
-    const dv = new DataView(cde.buffer);
-    dv.setUint32(0, 0x02014B50, true); dv.setUint16(4, 20, true); dv.setUint16(6, 20, true);
-    dv.setUint32(16, crc, true); dv.setUint32(20, size, true); dv.setUint32(24, size, true);
-    dv.setUint16(28, nb.length, true); dv.setUint32(42, lo, true); cde.set(nb, 46);
-    cdParts.push(cde);
-  }
-  const cdSize = cdParts.reduce((a, b) => a + b.length, 0);
-  const eocd = new Uint8Array(22);
-  const ev = new DataView(eocd.buffer);
-  ev.setUint32(0, 0x06054B50, true); ev.setUint16(8, entries.length, true);
-  ev.setUint16(10, entries.length, true); ev.setUint32(12, cdSize, true); ev.setUint32(16, cdOffset, true);
-  const all = [...parts, ...cdParts, eocd];
-  const total = all.reduce((a, b) => a + b.length, 0);
-  const out = new Uint8Array(total); let pos = 0;
-  for (const p of all) { out.set(p, pos); pos += p.length; }
-  return out;
-}
-
-function _xmlEsc(s) {
-  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-}
-
-function _slideXml(shapes, bgColor) {
-  const bg = bgColor ? `<p:bg><p:bgPr><a:solidFill><a:srgbClr val="${bgColor}"/></a:solidFill><a:effectLst/></p:bgPr></p:bg>` : '';
-  let spTree = ''; let idx = 2;
-  for (const sh of shapes) {
-    const x = Math.round((sh.x||0)*914400), y = Math.round((sh.y||0)*914400);
-    const w = Math.round((sh.w||9)*914400), h = Math.round((sh.h||1)*914400);
-    if (sh.type === 'text') {
-      const sz = Math.round((sh.fontSize||18)*100);
-      const bold = sh.bold ? ' b="1"' : '';
-      const algn = sh.align==='center'?'ctr':sh.align==='right'?'r':'l';
-      const clr = sh.color||'000000';
-      const lines = String(sh.text||'').split('\n');
-      const paras = lines.map(line => `<a:p><a:pPr algn="${algn}"/><a:r><a:rPr lang="en-US" sz="${sz}"${bold} dirty="0"><a:solidFill><a:srgbClr val="${clr}"/></a:solidFill><a:latin typeface="Calibri"/></a:rPr><a:t>${_xmlEsc(line)}</a:t></a:r></a:p>`).join('');
-      spTree += `<p:sp><p:nvSpPr><p:cNvPr id="${idx++}" name="sp${idx}"/><p:cNvSpPr><a:spLocks noGrp="1"/></p:cNvSpPr><p:nvPr/></p:nvSpPr><p:spPr><a:xfrm><a:off x="${x}" y="${y}"/><a:ext cx="${w}" cy="${h}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom><a:noFill/></p:spPr><p:txBody><a:bodyPr wrap="square" lIns="91440" tIns="45720" rIns="91440" bIns="45720" anchor="t"/><a:lstStyle/>${paras}</p:txBody></p:sp>`;
-    } else if (sh.type === 'image') {
-      spTree += `<p:pic><p:nvPicPr><p:cNvPr id="${idx++}" name="img${idx}"/><p:cNvPicPr><a:picLocks noChangeAspect="1"/></p:cNvPicPr><p:nvPr/></p:nvPicPr><p:blipFill><a:blip r:embed="${sh.rId}"/><a:stretch><a:fillRect/></a:stretch></p:blipFill><p:spPr><a:xfrm><a:off x="${x}" y="${y}"/><a:ext cx="${w}" cy="${h}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></p:spPr></p:pic>`;
-    }
-  }
-  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><p:sld xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"><p:cSld>${bg}<p:spTree><p:nvGrpSpPr><p:cNvPr id="1" name=""/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr><p:grpSpPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="0" cy="0"/><a:chOff x="0" y="0"/><a:chExt cx="0" cy="0"/></a:xfrm></p:grpSpPr>${spTree}</p:spTree></p:cSld><p:clrMapOvr><a:masterClr/></p:clrMapOvr></p:sld>`;
-}
-
 function downloadPPTX() {
-  try {
-    const slides = []; // [{shapes:[], imageRels:[], bg:''}]
-    const images = []; // [{bytes}]
+  const existing = document.getElementById('print-root');
+  if (existing) existing.remove();
 
-    function addSlide(bg) { const s={shapes:[],imageRels:[],bg:bg||''}; slides.push(s); return s; }
-    function txt(s, text, opts) { s.shapes.push({type:'text', text, ...opts}); }
-    function img(s, dataURL, x, y, w, h) {
-      if (!dataURL) return;
-      const rId = 'rId'+(s.imageRels.length+2);
-      const base64 = dataURL.split(',')[1];
-      const bin = atob(base64); const bytes = new Uint8Array(bin.length);
-      for (let i=0;i<bin.length;i++) bytes[i]=bin.charCodeAt(i);
-      const imgIdx = images.length+1; images.push(bytes);
-      s.imageRels.push({rId, imgIdx});
-      s.shapes.push({type:'image', rId, x, y, w, h});
-    }
-    function canvasURL(id) {
-      const c=document.getElementById(id); if(!c) return null;
-      try{return c.toDataURL('image/png');}catch(e){return null;}
-    }
+  const root = document.createElement('div');
+  root.id = 'print-root';
+  root.style.display = 'none';
 
-    // Title slide
-    const s0 = addSlide('f0f4f8');
-    txt(s0,'Single Customer View Analyser',{x:.5,y:1.8,w:12,h:1.2,fontSize:36,bold:true,color:'1a202c',align:'center'});
-    txt(s0,'CSV Analysis Report',{x:.5,y:3.1,w:12,h:.7,fontSize:22,color:'4a5568',align:'center'});
-    const fn = (document.getElementById('file-name')||{}).textContent||'';
-    if(fn) txt(s0,fn.replace('✔ ',''),{x:.5,y:3.9,w:12,h:.5,fontSize:13,color:'718096',align:'center'});
-
-    // Summary
-    const summaryEl = document.getElementById('summary');
-    if (summaryEl && summaryEl.style.display!=='none') {
-      const s1=addSlide();
-      txt(s1,'High Level Summary',{x:.4,y:.2,w:12.5,h:.6,fontSize:22,bold:true,color:'4299e1'});
-      const metas = Array.from(document.querySelectorAll('#meta-grid .meta-item')).map(el=>{
-        const l=(el.querySelector('.meta-label')||{}).textContent||'';
-        const v=(el.querySelector('.meta-value')||{}).textContent||'';
-        return l+': '+v;
-      });
-      if(metas.length) txt(s1,metas.join('   |   '),{x:.4,y:.9,w:12.5,h:.45,fontSize:11,color:'4a5568'});
-      const cards=Array.from(document.querySelectorAll('#columns-grid .col-card'));
-      const lines=cards.map(card=>{
-        const n=((card.querySelector('.col-name')||{}).textContent||'').trim();
-        const b=((card.querySelector('.type-badge')||{}).textContent||'').trim();
-        const stats=Array.from(card.querySelectorAll('.stat-row')).map(r=>r.textContent.trim()).join(' | ');
-        return n+' ['+b+']  '+stats;
-      });
-      if(lines.length) txt(s1,lines.join('\n'),{x:.4,y:1.45,w:12.5,h:5.5,fontSize:9,color:'1a202c'});
-    }
-
-    // Audience Sizer
-    const sizerEl=document.getElementById('sizer');
-    if(sizerEl && sizerEl.style.display!=='none'){
-      const s2=addSlide();
-      txt(s2,'Audience Sizer',{x:.4,y:.2,w:12.5,h:.6,fontSize:22,bold:true,color:'805ad5'});
-      const ct=(document.getElementById('sizer-count')||{}).textContent||'';
-      if(ct) txt(s2,ct,{x:.4,y:.9,w:12.5,h:.6,fontSize:18,bold:true,color:'1a202c'});
-      const flines=[];
-      sizerEl.querySelectorAll('.filter-group').forEach(fg=>{
-        const label=((fg.querySelector('label')||{}).textContent||'').trim();
-        const ranges=fg.querySelectorAll('input[type=range]');
-        let val='';
-        if(ranges.length===2) val=ranges[0].value+' – '+ranges[1].value;
-        else { const checked=Array.from(fg.querySelectorAll('input[type=checkbox]:checked')).map(cb=>cb.value); val=checked.join(', ')||'(all)'; }
-        flines.push(label+': '+val);
-      });
-      if(flines.length) txt(s2,flines.join('\n'),{x:.4,y:1.65,w:12.5,h:5,fontSize:11,color:'4a5568'});
-    }
-
-    // Correlation
-    const corrEl=document.getElementById('corr');
-    if(corrEl && corrEl.style.display!=='none' && lastCorrNumCols && lastCorrRMatrix){
-      const s3=addSlide();
-      txt(s3,'Correlation Analysis',{x:.4,y:.2,w:12.5,h:.6,fontSize:22,bold:true,color:'e53e3e'});
-      const n=lastCorrNumCols.length;
-      const header='          '+lastCorrNumCols.map(c=>c.name.substring(0,8).padEnd(9)).join(' ');
-      const rows=[header];
-      for(let i=0;i<n;i++){
-        let row=(lastCorrNumCols[i].name.substring(0,9)).padEnd(10);
-        for(let j=0;j<n;j++){
-          const r=lastCorrRMatrix[i][j];
-          row+=(isNaN(r)?'    ':r.toFixed(2)).padEnd(9)+' ';
-        }
-        rows.push(row);
-      }
-      txt(s3,rows.join('\n'),{x:.4,y:.9,w:12.5,h:5.5,fontSize:9,color:'1a202c'});
-      const su=canvasURL('scatter-canvas');
-      if(su){const ss=addSlide();txt(ss,'Scatter Plot',{x:.4,y:.2,w:12.5,h:.6,fontSize:22,bold:true,color:'e53e3e'});img(ss,su,.4,.9,12.5,6.2);}
-    }
-
-    // Distribution
-    const distEl=document.getElementById('dist');
-    if(distEl && distEl.style.display!=='none'){
-      const bu=canvasURL('box-canvas');
-      if(bu){const s4=addSlide();txt(s4,'Distribution View',{x:.4,y:.2,w:12.5,h:.6,fontSize:22,bold:true,color:'38a169'});img(s4,bu,.4,.9,12.5,6.2);}
-    }
-
-    // Build PPTX ZIP
-    const files={};
-    const slideTypeOverrides=slides.map((_,i)=>`<Override PartName="/ppt/slides/slide${i+1}.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slide+xml"/>`).join('');
-    const imgDefault=images.length?'<Default Extension="png" ContentType="image/png"/>':'';
-    files['[Content_Types].xml']=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/>${imgDefault}<Override PartName="/ppt/presentation.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.presentation.main+xml"/><Override PartName="/ppt/slideMasters/slideMaster1.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slideMaster+xml"/><Override PartName="/ppt/slideLayouts/slideLayout1.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slideLayout+xml"/><Override PartName="/ppt/theme/theme1.xml" ContentType="application/vnd.openxmlformats-officedocument.theme+xml"/>${slideTypeOverrides}</Types>`;
-    files['_rels/.rels']=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="ppt/presentation.xml"/></Relationships>`;
-    const slideRefs=slides.map((_,i)=>`<Relationship Id="rId${i+2}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide" Target="slides/slide${i+1}.xml"/>`).join('');
-    files['ppt/_rels/presentation.xml.rels']=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideMaster" Target="slideMasters/slideMaster1.xml"/>${slideRefs}</Relationships>`;
-    const sldIds=slides.map((_,i)=>`<p:sldId id="${256+i}" r:id="rId${i+2}"/>`).join('');
-    files['ppt/presentation.xml']=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><p:presentation xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" saveSubsetFonts="1"><p:sldMasterIdLst><p:sldMasterId id="2147483648" r:id="rId1"/></p:sldMasterIdLst><p:sldIdLst>${sldIds}</p:sldIdLst><p:sldSz cx="9144000" cy="5143500" type="screen16x9"/><p:notesSz cx="6858000" cy="9144000"/></p:presentation>`;
-    slides.forEach((sl,i)=>{
-      files[`ppt/slides/slide${i+1}.xml`]=_slideXml(sl.shapes, sl.bg);
-      const imgRels=sl.imageRels.map(r=>`<Relationship Id="${r.rId}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/image${r.imgIdx}.png"/>`).join('');
-      files[`ppt/slides/_rels/slide${i+1}.xml.rels`]=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideLayout" Target="../slideLayouts/slideLayout1.xml"/>${imgRels}</Relationships>`;
-    });
-    images.forEach((bytes,i)=>{ files[`ppt/media/image${i+1}.png`]=bytes; });
-    files['ppt/slideLayouts/slideLayout1.xml']=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><p:sldLayout xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" type="blank" preserve="1"><p:cSld name="Blank"><p:spTree><p:nvGrpSpPr><p:cNvPr id="1" name=""/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr><p:grpSpPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="0" cy="0"/><a:chOff x="0" y="0"/><a:chExt cx="0" cy="0"/></a:xfrm></p:grpSpPr></p:spTree></p:cSld><p:clrMapOvr><a:masterClr/></p:clrMapOvr></p:sldLayout>`;
-    files['ppt/slideLayouts/_rels/slideLayout1.xml.rels']=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideMaster" Target="../slideMasters/slideMaster1.xml"/></Relationships>`;
-    files['ppt/slideMasters/slideMaster1.xml']=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><p:sldMaster xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"><p:cSld><p:spTree><p:nvGrpSpPr><p:cNvPr id="1" name=""/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr><p:grpSpPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="0" cy="0"/><a:chOff x="0" y="0"/><a:chExt cx="0" cy="0"/></a:xfrm></p:grpSpPr></p:spTree></p:cSld><p:clrMap bg1="lt1" tx1="dk1" bg2="lt2" tx2="dk2" accent1="accent1" accent2="accent2" accent3="accent3" accent4="accent4" accent5="accent5" accent6="accent6" hlink="hlink" folHlink="folHlink"/><p:sldLayoutIdLst><p:sldLayoutId id="2147483649" r:id="rId1"/></p:sldLayoutIdLst><p:txStyles><p:titleStyle><a:lvl1pPr algn="ctr"><a:defRPr sz="4400"><a:solidFill><a:schemeClr val="tx1"/></a:solidFill></a:defRPr></a:lvl1pPr></p:titleStyle><p:bodyStyle><a:lvl1pPr><a:defRPr sz="3200"><a:solidFill><a:schemeClr val="tx1"/></a:solidFill></a:defRPr></a:lvl1pPr></p:bodyStyle><p:otherStyle><a:defPPr><a:defRPr lang="en-US"/></a:defPPr></p:otherStyle></p:txStyles></p:sldMaster>`;
-    files['ppt/slideMasters/_rels/slideMaster1.xml.rels']=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideLayout" Target="../slideLayouts/slideLayout1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/theme" Target="../theme/theme1.xml"/></Relationships>`;
-    files['ppt/theme/theme1.xml']=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><a:theme xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" name="Office Theme"><a:themeElements><a:clrScheme name="Office"><a:dk1><a:sysClr lastClr="000000" val="windowText"/></a:dk1><a:lt1><a:sysClr lastClr="ffffff" val="window"/></a:lt1><a:dk2><a:srgbClr val="1F497D"/></a:dk2><a:lt2><a:srgbClr val="EEECE1"/></a:lt2><a:accent1><a:srgbClr val="4F81BD"/></a:accent1><a:accent2><a:srgbClr val="C0504D"/></a:accent2><a:accent3><a:srgbClr val="9BBB59"/></a:accent3><a:accent4><a:srgbClr val="8064A2"/></a:accent4><a:accent5><a:srgbClr val="4BACC6"/></a:accent5><a:accent6><a:srgbClr val="F79646"/></a:accent6><a:hlink><a:srgbClr val="0000FF"/></a:hlink><a:folHlink><a:srgbClr val="800080"/></a:folHlink></a:clrScheme><a:fontScheme name="Office"><a:majorFont><a:latin typeface="Calibri"/><a:ea typeface=""/><a:cs typeface=""/></a:majorFont><a:minorFont><a:latin typeface="Calibri"/><a:ea typeface=""/><a:cs typeface=""/></a:minorFont></a:fontScheme><a:fmtScheme name="Office"><a:fillStyleLst><a:noFill/><a:solidFill><a:schemeClr val="phClr"/></a:solidFill><a:gradFill rotWithShape="1"><a:gsLst><a:gs pos="0"><a:schemeClr val="phClr"><a:tint val="50000"/><a:satMod val="300000"/></a:schemeClr></a:gs><a:gs pos="100000"><a:schemeClr val="phClr"><a:shade val="20000"/><a:satMod val="255000"/></a:schemeClr></a:gs></a:gsLst><a:lin ang="16200000" scaled="0"/></a:gradFill></a:fillStyleLst><a:lnStyleLst><a:ln w="9525"><a:solidFill><a:schemeClr val="phClr"/></a:solidFill></a:ln><a:ln w="25400"><a:solidFill><a:schemeClr val="phClr"/></a:solidFill></a:ln><a:ln w="38100"><a:solidFill><a:schemeClr val="phClr"/></a:solidFill></a:ln></a:lnStyleLst><a:effectStyleLst><a:effectStyle><a:effectLst/></a:effectStyle><a:effectStyle><a:effectLst/></a:effectStyle><a:effectStyle><a:effectLst/></a:effectStyle></a:effectStyleLst><a:bgFillStyleLst><a:noFill/><a:solidFill><a:schemeClr val="phClr"/></a:solidFill><a:gradFill rotWithShape="1"><a:gsLst><a:gs pos="0"><a:schemeClr val="phClr"><a:tint val="40000"/><a:satMod val="350000"/></a:schemeClr></a:gs><a:gs pos="100000"><a:schemeClr val="phClr"><a:shade val="20000"/><a:satMod val="255000"/></a:schemeClr></a:gs></a:gsLst><a:lin ang="16200000" scaled="0"/></a:gradFill></a:bgFillStyleLst></a:fmtScheme></a:themeElements></a:theme>`;
-
-    const zipBytes = _buildZip(files);
-    const blob = new Blob([zipBytes], {type:'application/vnd.openxmlformats-officedocument.presentationml.presentation'});
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href=url; a.download='SCV_Analysis.pptx'; document.body.appendChild(a); a.click();
-    document.body.removeChild(a);
-    setTimeout(()=>URL.revokeObjectURL(url), 1000);
-  } catch(err) {
-    alert('PPTX export failed: '+err.message);
-    console.error(err);
+  function page(color) {
+    const div = document.createElement('div');
+    div.className = 'print-page';
+    div.style.borderTop = '6px solid #' + color;
+    root.appendChild(div);
+    return div;
   }
+  function h2(p, text, color) {
+    const el = document.createElement('div');
+    el.className = 'print-h2';
+    el.style.color = '#' + color;
+    el.textContent = text;
+    p.appendChild(el);
+  }
+  function canvasImg(p, id) {
+    const c = document.getElementById(id);
+    if (!c) return;
+    try { const img = document.createElement('img'); img.className = 'print-img'; img.src = c.toDataURL('image/png'); p.appendChild(img); } catch(e) {}
+  }
+
+  // Title
+  const p0 = page('4299e1');
+  const tt = document.createElement('div'); tt.className = 'print-h1'; tt.style.marginTop = '3cm'; tt.style.textAlign = 'center';
+  tt.textContent = 'Single Customer View Analyser'; p0.appendChild(tt);
+  const fn = document.createElement('div'); fn.className = 'print-sub'; fn.style.textAlign = 'center'; fn.style.marginTop = '.4cm';
+  fn.textContent = (document.getElementById('file-name').textContent||'').replace('✔ ',''); p0.appendChild(fn);
+
+  // Summary
+  const summaryEl = document.getElementById('summary');
+  if (summaryEl && summaryEl.style.display !== 'none') {
+    const p1 = page('4299e1');
+    h2(p1, 'High Level Summary', '4299e1');
+    const metas = Array.from(document.querySelectorAll('#meta-grid .meta-item')).map(el => {
+      return ((el.querySelector('.meta-label')||{}).textContent||'') + ': ' + ((el.querySelector('.meta-value')||{}).textContent||'');
+    });
+    if (metas.length) { const s = document.createElement('div'); s.className = 'print-sub'; s.textContent = metas.join('   |   '); p1.appendChild(s); }
+    const cards = Array.from(document.querySelectorAll('#columns-grid .col-card'));
+    if (cards.length) {
+      const tbl = document.createElement('table'); tbl.className = 'print-table';
+      tbl.innerHTML = '<thead><tr><th>Column</th><th>Type</th><th>Statistics</th></tr></thead>';
+      const tbody = document.createElement('tbody');
+      cards.forEach(card => {
+        const name = ((card.querySelector('.col-name')||{}).textContent||'').trim();
+        const badge = ((card.querySelector('.type-badge')||{}).textContent||'').trim();
+        const stats = Array.from(card.querySelectorAll('.stat-row')).map(r=>r.textContent.trim()).join('  |  ');
+        const tr = document.createElement('tr');
+        tr.innerHTML = '<td><strong>'+name+'</strong></td><td>'+badge+'</td><td>'+stats+'</td>';
+        tbody.appendChild(tr);
+      });
+      tbl.appendChild(tbody); p1.appendChild(tbl);
+    }
+  }
+
+  // Audience Sizer
+  const sizerEl = document.getElementById('sizer');
+  if (sizerEl && sizerEl.style.display !== 'none') {
+    const p2 = page('805ad5');
+    h2(p2, 'Audience Sizer', '805ad5');
+    const ct = (document.getElementById('sizer-count')||{}).textContent||'';
+    if (ct) { const el=document.createElement('div'); el.style.cssText='font-size:18pt;font-weight:bold;margin:.3cm 0'; el.textContent=ct; p2.appendChild(el); }
+    const lines = [];
+    sizerEl.querySelectorAll('.filter-group').forEach(fg => {
+      const label = ((fg.querySelector('label')||{}).textContent||'').trim();
+      const ranges = fg.querySelectorAll('input[type=range]');
+      let val = ranges.length===2 ? ranges[0].value+' – '+ranges[1].value :
+        (Array.from(fg.querySelectorAll('input[type=checkbox]:checked')).map(cb=>cb.value).join(', ')||'(all)');
+      lines.push(label+': '+val);
+    });
+    if (lines.length) { const el=document.createElement('div'); el.className='print-body'; el.textContent=lines.join('
+'); p2.appendChild(el); }
+  }
+
+  // Correlation
+  const corrEl = document.getElementById('corr');
+  if (corrEl && corrEl.style.display !== 'none' && lastCorrNumCols && lastCorrRMatrix) {
+    const p3 = page('e53e3e');
+    h2(p3, 'Correlation Analysis', 'e53e3e');
+    const n = lastCorrNumCols.length;
+    const tbl = document.createElement('table'); tbl.className = 'print-table';
+    const thead = document.createElement('thead');
+    const hrow = document.createElement('tr');
+    hrow.innerHTML = '<th></th>' + lastCorrNumCols.map(c=>`<th>${c.name}</th>`).join('');
+    thead.appendChild(hrow); tbl.appendChild(thead);
+    const tbody = document.createElement('tbody');
+    for (let i=0;i<n;i++) {
+      const tr = document.createElement('tr');
+      tr.innerHTML = '<th>'+lastCorrNumCols[i].name+'</th>';
+      for (let j=0;j<n;j++) {
+        const r = lastCorrRMatrix[i][j];
+        const val = isNaN(r)?'':r.toFixed(2);
+        const intensity = isNaN(r)?0:Math.round(Math.abs(r)*180);
+        const h = (255-intensity).toString(16).padStart(2,'0');
+        const bg = (i===j||isNaN(r))?'ffffff': r>0?(h+h+'ff'):('ff'+h+h);
+        const td = document.createElement('td');
+        td.textContent=val; td.style.background='#'+bg; td.style.textAlign='center';
+        tr.appendChild(td);
+      }
+      tbody.appendChild(tr);
+    }
+    tbl.appendChild(tbody); p3.appendChild(tbl);
+    const scatterC = document.getElementById('scatter-canvas');
+    if (scatterC) { const sp=page('e53e3e'); h2(sp,'Scatter Plot','e53e3e'); canvasImg(sp,'scatter-canvas'); }
+  }
+
+  // Distribution
+  const distEl = document.getElementById('dist');
+  if (distEl && distEl.style.display !== 'none') {
+    const p4 = page('38a169');
+    h2(p4,'Distribution View','38a169');
+    canvasImg(p4,'box-canvas');
+  }
+
+  document.body.appendChild(root);
+  root.style.display = 'block';
+  window.print();
+  setTimeout(() => root.remove(), 2000);
 }
 </script>
 </body>
