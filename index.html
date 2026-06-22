@@ -992,17 +992,6 @@ function renderHeatmap(numCols) {
   table.innerHTML = html;
 }
 
-function populateScatterDropdowns(numCols) {
-  const sx = document.getElementById('scatter-x');
-  const sy = document.getElementById('scatter-y');
-  sx.innerHTML = '<option value="">— Select variable X —</option>';
-  sy.innerHTML = '<option value="">— Select variable Y —</option>';
-  numCols.forEach((c, idx) => {
-    sx.innerHTML += `<option value="${idx}">${escHtml(c.name)}</option>`;
-    sy.innerHTML += `<option value="${idx}">${escHtml(c.name)}</option>`;
-  });
-}
-
 function drawScatter(numCols) {
   const xi = parseInt(document.getElementById('scatter-x').value);
   const yi = parseInt(document.getElementById('scatter-y').value);
@@ -1124,37 +1113,37 @@ function renderCorrelation(headers, dataRows) {
   }
 
   renderHeatmap(numCols);
-  populateScatterDropdowns(numCols);
-  document.getElementById('corr-result').style.display = 'none';
 
-  // clear canvas
+  // Populate dropdowns fresh
+  const sx = document.getElementById('scatter-x');
+  const sy = document.getElementById('scatter-y');
+  sx.innerHTML = '<option value="">— Select variable X —</option>';
+  sy.innerHTML = '<option value="">— Select variable Y —</option>';
+  numCols.forEach((c, idx) => {
+    sx.innerHTML += `<option value="${idx}">${escHtml(c.name)}</option>`;
+    sy.innerHTML += `<option value="${idx}">${escHtml(c.name)}</option>`;
+  });
+
+  // Reset canvas and result box
   const canvas = document.getElementById('scatter-canvas');
   canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
+  document.getElementById('corr-result').style.display = 'none';
 
-  // wire dropdowns — prevent same variable being chosen for both
-  // Re-query by ID each time so we always read the live element values
+  // Use onchange so re-opening correlation always replaces the handler
   function syncDropdowns() {
-    const elX = document.getElementById('scatter-x');
-    const elY = document.getElementById('scatter-y');
-    const xVal = elX.value, yVal = elY.value;
-    Array.from(elY.options).forEach(o => { o.disabled = o.value !== '' && o.value === xVal; });
-    Array.from(elX.options).forEach(o => { o.disabled = o.value !== '' && o.value === yVal; });
-    if (xVal !== '' && yVal !== '' && xVal !== yVal) drawScatter(numCols);
-    else {
+    const xVal = sx.value, yVal = sy.value;
+    Array.from(sy.options).forEach(o => { o.disabled = o.value !== '' && o.value === xVal; });
+    Array.from(sx.options).forEach(o => { o.disabled = o.value !== '' && o.value === yVal; });
+    if (xVal !== '' && yVal !== '' && xVal !== yVal) {
+      drawScatter(numCols);
+    } else {
       canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
       document.getElementById('corr-result').style.display = 'none';
     }
   }
 
-  // Replace nodes to drop any stale listeners from a previous render
-  const oldSx = document.getElementById('scatter-x');
-  const oldSy = document.getElementById('scatter-y');
-  const newSx = oldSx.cloneNode(true);
-  const newSy = oldSy.cloneNode(true);
-  oldSx.parentNode.replaceChild(newSx, oldSx);
-  oldSy.parentNode.replaceChild(newSy, oldSy);
-  newSx.addEventListener('change', syncDropdowns);
-  newSy.addEventListener('change', syncDropdowns);
+  sx.onchange = syncDropdowns;
+  sy.onchange = syncDropdowns;
 
   document.getElementById('corr').style.display = 'block';
   document.getElementById('corr').scrollIntoView({ behavior: 'smooth', block: 'start' });
