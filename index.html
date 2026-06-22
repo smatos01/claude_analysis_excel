@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CSV Analyser</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #f0f4f8;
+      color: #1a202c;
+      min-height: 100vh;
+      padding: 2rem;
+    }
+
+    h1 {
+      font-size: 1.75rem;
+      font-weight: 700;
+      margin-bottom: 1.5rem;
+      color: #2d3748;
+    }
+
+    .card {
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 1px 4px rgba(0,0,0,.08), 0 4px 16px rgba(0,0,0,.06);
+      padding: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+
+    /* ── Upload zone ── */
+    #drop-zone {
+      border: 2px dashed #a0aec0;
+      border-radius: 10px;
+      padding: 2.5rem;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color .2s, background .2s;
+    }
+    #drop-zone.drag-over { border-color: #4299e1; background: #ebf8ff; }
+    #drop-zone p { color: #718096; margin-top: .5rem; font-size: .9rem; }
+    #file-input { display: none; }
+
+    .upload-icon { font-size: 2.5rem; }
+
+    #file-name {
+      margin-top: 1rem;
+      font-size: .9rem;
+      color: #4a5568;
+      font-weight: 500;
+    }
+
+    /* ── Buttons ── */
+    button {
+      border: none;
+      border-radius: 8px;
+      padding: .6rem 1.4rem;
+      font-size: .95rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity .15s, transform .1s;
+    }
+    button:active { transform: scale(.97); }
+    button:disabled { opacity: .4; cursor: not-allowed; }
+
+    #summary-btn {
+      background: #4299e1;
+      color: #fff;
+      margin-top: 1rem;
+    }
+    #summary-btn:not(:disabled):hover { background: #3182ce; }
+
+    #clear-btn {
+      background: #e2e8f0;
+      color: #4a5568;
+      margin-left: .75rem;
+    }
+    #clear-btn:hover { background: #cbd5e0; }
+
+    /* ── Summary output ── */
+    #summary { display: none; }
+
+    .meta-grid {
+      display: flex;
+      gap: 1.5rem;
+      flex-wrap: wrap;
+      margin-bottom: 1.5rem;
+    }
+    .meta-item {
+      background: #ebf8ff;
+      border-radius: 8px;
+      padding: .75rem 1.25rem;
+      text-align: center;
+    }
+    .meta-item .val { font-size: 1.6rem; font-weight: 700; color: #2b6cb0; }
+    .meta-item .lbl { font-size: .8rem; color: #4a5568; margin-top: .15rem; }
+
+    /* ── Column cards ── */
+    .columns-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: 1rem;
+    }
+
+    .col-card {
+      border-radius: 10px;
+      padding: 1rem 1.2rem;
+      border-left: 4px solid;
+    }
+    .col-card.type-id       { border-color: #9f7aea; background: #faf5ff; }
+    .col-card.type-numeric  { border-color: #48bb78; background: #f0fff4; }
+    .col-card.type-category { border-color: #ed8936; background: #fffaf0; }
+
+    .col-card h3 {
+      font-size: .95rem;
+      font-weight: 700;
+      margin-bottom: .4rem;
+      word-break: break-word;
+    }
+    .col-type-badge {
+      display: inline-block;
+      font-size: .7rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .05em;
+      border-radius: 4px;
+      padding: .1rem .45rem;
+      margin-bottom: .6rem;
+    }
+    .type-id       .col-type-badge { background: #9f7aea; color: #fff; }
+    .type-numeric  .col-type-badge { background: #48bb78; color: #fff; }
+    .type-category .col-type-badge { background: #ed8936; color: #fff; }
+
+    .stat-row { display: flex; justify-content: space-between; font-size: .85rem; margin-bottom: .25rem; }
+    .stat-row .sk { color: #718096; }
+    .stat-row .sv { font-weight: 600; }
+
+    .cat-table { width: 100%; border-collapse: collapse; margin-top: .4rem; font-size: .82rem; }
+    .cat-table th { text-align: left; color: #718096; font-weight: 600; padding-bottom: .3rem; border-bottom: 1px solid #e2e8f0; }
+    .cat-table td { padding: .2rem 0; vertical-align: middle; }
+    .cat-table td:last-child { text-align: right; }
+
+    .bar-bg { background: #e2e8f0; border-radius: 4px; height: 6px; margin-top: 2px; }
+    .bar-fill { height: 6px; border-radius: 4px; background: #ed8936; }
+
+    .more-hint { font-size: .75rem; color: #a0aec0; margin-top: .4rem; }
+
+    /* ── Responsive ── */
+    @media (max-width: 500px) {
+      body { padding: 1rem; }
+      .meta-grid { gap: 1rem; }
+    }
+  </style>
+</head>
+<body>
+
+<h1>CSV Analyser</h1>
+
+<div class="card">
+  <div id="drop-zone" role="button" tabindex="0" aria-label="Upload CSV file">
+    <div class="upload-icon">📂</div>
+    <strong>Click or drag & drop a CSV file here</strong>
+    <p>Only .csv files are supported</p>
+    <input type="file" id="file-input" accept=".csv,text/csv" />
+  </div>
+  <div id="file-name"></div>
+  <div style="margin-top:1rem;">
+    <button id="summary-btn" disabled>High level summary</button>
+    <button id="clear-btn" style="display:none;">Clear</button>
+  </div>
+</div>
+
+<div class="card" id="summary">
+  <div class="meta-grid" id="meta-grid"></div>
+  <div class="columns-grid" id="columns-grid"></div>
+</div>
+
+<script>
+// ─── CSV parser (handles quoted fields) ───────────────────────────────────────
+function parseCSV(text) {
+  const rows = [];
+  let i = 0, n = text.length;
+
+  while (i < n) {
+    const row = [];
+    while (i < n) {
+      let field = '';
+      if (text[i] === '"') {
+        i++; // skip opening quote
+        while (i < n) {
+          if (text[i] === '"' && text[i + 1] === '"') { field += '"'; i += 2; }
+          else if (text[i] === '"') { i++; break; }
+          else { field += text[i++]; }
+        }
+        // skip to comma or newline
+        while (i < n && text[i] !== ',' && text[i] !== '\n' && text[i] !== '\r') i++;
+      } else {
+        while (i < n && text[i] !== ',' && text[i] !== '\n' && text[i] !== '\r') {
+          field += text[i++];
+        }
+      }
+      row.push(field.trim());
+      if (i < n && text[i] === ',') { i++; continue; }
+      break;
+    }
+    // skip \r\n or \n
+    if (i < n && text[i] === '\r') i++;
+    if (i < n && text[i] === '\n') i++;
+    if (row.length > 0 && !(row.length === 1 && row[0] === '')) rows.push(row);
+  }
+  return rows;
+}
+
+// ─── Column type detection ────────────────────────────────────────────────────
+const ID_PATTERNS = /\bid\b|_id$|^id_/i;
+const ID_WORDS = ['id', 'uuid', 'guid', 'identifier', 'key', 'pk', 'fk'];
+
+function isIdColumn(name, values) {
+  const lower = name.toLowerCase().replace(/[\s_-]/g, '');
+  if (ID_WORDS.some(w => lower === w) || ID_PATTERNS.test(name)) return true;
+  // check uniqueness: if >90% unique values look like IDs
+  const nonEmpty = values.filter(v => v !== '');
+  if (nonEmpty.length === 0) return false;
+  const unique = new Set(nonEmpty).size;
+  const ratio = unique / nonEmpty.length;
+  // also check they look like IDs (numeric sequence or uuid-like)
+  const looksNumeric = nonEmpty.every(v => /^\d+$/.test(v));
+  const looksUUID = nonEmpty.every(v => /^[0-9a-f-]{8,}$/i.test(v));
+  return ratio > 0.95 && (looksNumeric || looksUUID);
+}
+
+function isNumericColumn(values) {
+  const nonEmpty = values.filter(v => v !== '');
+  if (nonEmpty.length === 0) return false;
+  const numericCount = nonEmpty.filter(v => !isNaN(parseFloat(v)) && isFinite(v)).length;
+  return numericCount / nonEmpty.length >= 0.85;
+}
+
+function numStats(values) {
+  const nums = values.map(v => parseFloat(v)).filter(v => !isNaN(v));
+  if (nums.length === 0) return null;
+  const sorted = [...nums].sort((a, b) => a - b);
+  const sum = nums.reduce((a, b) => a + b, 0);
+  return {
+    min: sorted[0],
+    max: sorted[sorted.length - 1],
+    mean: sum / nums.length,
+    count: nums.length,
+  };
+}
+
+function catStats(values, totalRows) {
+  const freq = {};
+  for (const v of values) {
+    const key = v === '' ? '(empty)' : v;
+    freq[key] = (freq[key] || 0) + 1;
+  }
+  return Object.entries(freq)
+    .sort((a, b) => b[1] - a[1])
+    .map(([val, cnt]) => ({ val, cnt, pct: (cnt / totalRows * 100) }));
+}
+
+// ─── Formatting helpers ───────────────────────────────────────────────────────
+function fmt(n) {
+  if (Math.abs(n) >= 1e6) return (n / 1e6).toFixed(2) + 'M';
+  if (Math.abs(n) >= 1e3) return (n / 1e3).toFixed(2) + 'K';
+  return Number.isInteger(n) ? n.toString() : n.toFixed(4).replace(/\.?0+$/, '');
+}
+
+// ─── Render summary ───────────────────────────────────────────────────────────
+function renderSummary(headers, dataRows) {
+  const nRows = dataRows.length;
+  const nCols = headers.length;
+
+  // meta
+  const metaGrid = document.getElementById('meta-grid');
+  metaGrid.innerHTML = `
+    <div class="meta-item"><div class="val">${nRows.toLocaleString()}</div><div class="lbl">Rows</div></div>
+    <div class="meta-item"><div class="val">${nCols.toLocaleString()}</div><div class="lbl">Columns</div></div>
+  `;
+
+  // columns
+  const colGrid = document.getElementById('columns-grid');
+  colGrid.innerHTML = '';
+
+  headers.forEach((hdr, ci) => {
+    const values = dataRows.map(r => (r[ci] ?? '').trim());
+    let type, cardClass, html;
+
+    if (isIdColumn(hdr, values)) {
+      type = 'ID'; cardClass = 'type-id';
+      const unique = new Set(values.filter(v => v !== '')).size;
+      html = `
+        <div class="stat-row"><span class="sk">Unique values</span><span class="sv">${unique.toLocaleString()}</span></div>
+        <div class="stat-row"><span class="sk">Notes</span><span class="sv">Identifier column</span></div>
+      `;
+    } else if (isNumericColumn(values)) {
+      type = 'Numeric'; cardClass = 'type-numeric';
+      const s = numStats(values);
+      html = s ? `
+        <div class="stat-row"><span class="sk">Min</span><span class="sv">${fmt(s.min)}</span></div>
+        <div class="stat-row"><span class="sk">Mean</span><span class="sv">${fmt(s.mean)}</span></div>
+        <div class="stat-row"><span class="sk">Max</span><span class="sv">${fmt(s.max)}</span></div>
+        <div class="stat-row"><span class="sk">Non-null count</span><span class="sv">${s.count.toLocaleString()}</span></div>
+      ` : '<em>No valid numbers found</em>';
+    } else {
+      type = 'Categorical'; cardClass = 'type-category';
+      const cats = catStats(values, nRows);
+      const show = cats.slice(0, 8);
+      const maxCnt = show[0]?.cnt || 1;
+      const rows = show.map(c => `
+        <tr>
+          <td style="padding-right:.5rem;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${escHtml(c.val)}">${escHtml(c.val)}</td>
+          <td style="width:80px;">
+            <div class="bar-bg"><div class="bar-fill" style="width:${(c.cnt/maxCnt*100).toFixed(1)}%"></div></div>
+          </td>
+          <td>${c.cnt.toLocaleString()}</td>
+          <td>${c.pct.toFixed(1)}%</td>
+        </tr>
+      `).join('');
+      const more = cats.length > 8 ? `<p class="more-hint">+ ${cats.length - 8} more unique values</p>` : '';
+      html = `
+        <table class="cat-table">
+          <thead><tr><th>Value</th><th></th><th>Count</th><th>%</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+        ${more}
+      `;
+    }
+
+    const card = document.createElement('div');
+    card.className = `col-card ${cardClass}`;
+    card.innerHTML = `
+      <h3>${escHtml(hdr)}</h3>
+      <span class="col-type-badge">${type}</span>
+      ${html}
+    `;
+    colGrid.appendChild(card);
+  });
+
+  document.getElementById('summary').style.display = 'block';
+  document.getElementById('summary').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ─── App state & wiring ───────────────────────────────────────────────────────
+let parsedHeaders = null;
+let parsedData = null;
+
+function loadFile(file) {
+  if (!file || !file.name.toLowerCase().endsWith('.csv')) {
+    alert('Please upload a valid .csv file.');
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = e => {
+    const text = e.target.result;
+    const rows = parseCSV(text);
+    if (rows.length < 2) { alert('CSV must have at least a header row and one data row.'); return; }
+    parsedHeaders = rows[0];
+    parsedData = rows.slice(1);
+    document.getElementById('file-name').textContent = `✔ ${file.name}  (${rows.length - 1} data rows detected)`;
+    document.getElementById('summary-btn').disabled = false;
+    document.getElementById('clear-btn').style.display = 'inline-block';
+    document.getElementById('summary').style.display = 'none';
+  };
+  reader.readAsText(file);
+}
+
+// Drop zone
+const dropZone = document.getElementById('drop-zone');
+const fileInput = document.getElementById('file-input');
+
+dropZone.addEventListener('click', () => fileInput.click());
+dropZone.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') fileInput.click(); });
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropZone.classList.remove('drag-over');
+  const file = e.dataTransfer.files[0];
+  loadFile(file);
+});
+fileInput.addEventListener('change', () => loadFile(fileInput.files[0]));
+
+// Buttons
+document.getElementById('summary-btn').addEventListener('click', () => {
+  if (parsedHeaders && parsedData) renderSummary(parsedHeaders, parsedData);
+});
+
+document.getElementById('clear-btn').addEventListener('click', () => {
+  parsedHeaders = null;
+  parsedData = null;
+  fileInput.value = '';
+  document.getElementById('file-name').textContent = '';
+  document.getElementById('summary-btn').disabled = true;
+  document.getElementById('clear-btn').style.display = 'none';
+  document.getElementById('summary').style.display = 'none';
+});
+</script>
+</body>
+</html>
