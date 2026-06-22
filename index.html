@@ -57,15 +57,8 @@
     #drop-zone.drag-over { border-color: #4299e1; background: #ebf8ff; }
     #drop-zone p { color: #718096; margin-top: .5rem; font-size: .9rem; }
     #file-input { display: none; }
-
     .upload-icon { font-size: 2.5rem; }
-
-    #file-name {
-      margin-top: 1rem;
-      font-size: .9rem;
-      color: #4a5568;
-      font-weight: 500;
-    }
+    #file-name { margin-top: 1rem; font-size: .9rem; color: #4a5568; font-weight: 500; }
 
     /* ── Buttons ── */
     button {
@@ -80,35 +73,20 @@
     button:active { transform: scale(.97); }
     button:disabled { opacity: .4; cursor: not-allowed; }
 
-    #summary-btn {
-      background: #4299e1;
-      color: #fff;
-      margin-top: 1rem;
-    }
+    #summary-btn { background: #4299e1; color: #fff; margin-top: 1rem; }
     #summary-btn:not(:disabled):hover { background: #3182ce; }
 
-    #clear-btn {
-      background: #e2e8f0;
-      color: #4a5568;
-      margin-left: .75rem;
-    }
+    #sizer-btn { background: #805ad5; color: #fff; margin-top: 1rem; margin-left: .75rem; }
+    #sizer-btn:not(:disabled):hover { background: #6b46c1; }
+
+    #clear-btn { background: #e2e8f0; color: #4a5568; margin-left: .75rem; margin-top: 1rem; }
     #clear-btn:hover { background: #cbd5e0; }
 
     /* ── Summary output ── */
     #summary { display: none; }
 
-    .meta-grid {
-      display: flex;
-      gap: 1.5rem;
-      flex-wrap: wrap;
-      margin-bottom: 1.5rem;
-    }
-    .meta-item {
-      background: #ebf8ff;
-      border-radius: 8px;
-      padding: .75rem 1.25rem;
-      text-align: center;
-    }
+    .meta-grid { display: flex; gap: 1.5rem; flex-wrap: wrap; margin-bottom: 1.5rem; }
+    .meta-item { background: #ebf8ff; border-radius: 8px; padding: .75rem 1.25rem; text-align: center; }
     .meta-item .val { font-size: 1.6rem; font-weight: 700; color: #2b6cb0; }
     .meta-item .lbl { font-size: .8rem; color: #4a5568; margin-top: .15rem; }
 
@@ -118,23 +96,13 @@
       grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
       gap: 1rem;
     }
-
-    .col-card {
-      border-radius: 10px;
-      padding: 1rem 1.2rem;
-      border-left: 4px solid;
-    }
+    .col-card { border-radius: 10px; padding: 1rem 1.2rem; border-left: 4px solid; }
     .col-card.type-id       { border-color: #9f7aea; background: #faf5ff; }
     .col-card.type-numeric  { border-color: #48bb78; background: #f0fff4; }
     .col-card.type-date     { border-color: #4299e1; background: #ebf8ff; }
     .col-card.type-category { border-color: #ed8936; background: #fffaf0; }
 
-    .col-card h3 {
-      font-size: .95rem;
-      font-weight: 700;
-      margin-bottom: .4rem;
-      word-break: break-word;
-    }
+    .col-card h3 { font-size: .95rem; font-weight: 700; margin-bottom: .4rem; word-break: break-word; }
     .col-type-badge {
       display: inline-block;
       font-size: .7rem;
@@ -172,8 +140,164 @@
 
     .bar-bg { background: #e2e8f0; border-radius: 4px; height: 6px; margin-top: 2px; }
     .bar-fill { height: 6px; border-radius: 4px; background: #ed8936; }
-
     .more-hint { font-size: .75rem; color: #a0aec0; margin-top: .4rem; }
+
+    /* ── Audience Sizer ── */
+    #sizer { display: none; }
+
+    .sizer-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+      padding-bottom: 1.25rem;
+      border-bottom: 2px solid #e2e8f0;
+    }
+    .sizer-header h2 { font-size: 1.1rem; font-weight: 700; color: #2d3748; }
+
+    .audience-count {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: #fff;
+      border-radius: 12px;
+      padding: .9rem 1.5rem;
+      text-align: center;
+      min-width: 200px;
+    }
+    .audience-count .ac-num { font-size: 2rem; font-weight: 800; line-height: 1; }
+    .audience-count .ac-pct { font-size: .9rem; opacity: .9; margin-top: .2rem; }
+    .audience-count .ac-lbl { font-size: .75rem; opacity: .7; margin-top: .1rem; text-transform: uppercase; letter-spacing: .05em; }
+
+    .reset-filters-btn {
+      background: #e2e8f0;
+      color: #4a5568;
+      font-size: .8rem;
+      padding: .4rem .9rem;
+    }
+    .reset-filters-btn:hover { background: #cbd5e0; }
+
+    .filters-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 1.25rem;
+    }
+
+    .filter-card {
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      padding: 1rem 1.1rem;
+      background: #fafafa;
+    }
+    .filter-card h4 {
+      font-size: .85rem;
+      font-weight: 700;
+      color: #2d3748;
+      margin-bottom: .2rem;
+      word-break: break-word;
+    }
+    .filter-type-label {
+      font-size: .7rem;
+      text-transform: uppercase;
+      font-weight: 700;
+      letter-spacing: .05em;
+      color: #a0aec0;
+      margin-bottom: .65rem;
+    }
+
+    /* Range filter */
+    .range-inputs { display: flex; align-items: center; gap: .5rem; }
+    .range-inputs input[type="text"],
+    .range-inputs input[type="date"] {
+      flex: 1;
+      border: 1px solid #cbd5e0;
+      border-radius: 6px;
+      padding: .4rem .6rem;
+      font-size: .85rem;
+      width: 0;
+      min-width: 0;
+      background: #fff;
+      color: #2d3748;
+    }
+    .range-inputs input:focus { outline: none; border-color: #805ad5; box-shadow: 0 0 0 2px rgba(128,90,213,.15); }
+    .range-sep { font-size: .8rem; color: #a0aec0; white-space: nowrap; }
+
+    /* Multiselect dropdown */
+    .ms-wrapper { position: relative; }
+    .ms-trigger {
+      width: 100%;
+      border: 1px solid #cbd5e0;
+      border-radius: 6px;
+      padding: .4rem .7rem;
+      font-size: .85rem;
+      background: #fff;
+      color: #2d3748;
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: .5rem;
+      text-align: left;
+    }
+    .ms-trigger:hover { border-color: #805ad5; }
+    .ms-trigger.open { border-color: #805ad5; box-shadow: 0 0 0 2px rgba(128,90,213,.15); }
+    .ms-trigger-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
+    .ms-chevron { flex-shrink: 0; transition: transform .2s; font-style: normal; }
+    .ms-trigger.open .ms-chevron { transform: rotate(180deg); }
+
+    .ms-dropdown {
+      display: none;
+      position: absolute;
+      top: calc(100% + 4px);
+      left: 0; right: 0;
+      background: #fff;
+      border: 1px solid #cbd5e0;
+      border-radius: 8px;
+      box-shadow: 0 4px 16px rgba(0,0,0,.12);
+      z-index: 100;
+      max-height: 240px;
+      overflow-y: auto;
+    }
+    .ms-dropdown.open { display: block; }
+
+    .ms-actions {
+      display: flex;
+      gap: .5rem;
+      padding: .5rem .7rem;
+      border-bottom: 1px solid #e2e8f0;
+    }
+    .ms-actions button {
+      font-size: .72rem;
+      padding: .2rem .5rem;
+      background: #e2e8f0;
+      color: #4a5568;
+      border-radius: 4px;
+    }
+    .ms-actions button:hover { background: #cbd5e0; }
+
+    .ms-search {
+      width: 100%;
+      border: none;
+      border-bottom: 1px solid #e2e8f0;
+      padding: .45rem .7rem;
+      font-size: .82rem;
+      outline: none;
+      color: #2d3748;
+    }
+
+    .ms-option {
+      display: flex;
+      align-items: center;
+      gap: .5rem;
+      padding: .35rem .7rem;
+      font-size: .83rem;
+      cursor: pointer;
+      color: #2d3748;
+    }
+    .ms-option:hover { background: #f7f7fb; }
+    .ms-option input[type="checkbox"] { accent-color: #805ad5; width: 14px; height: 14px; flex-shrink: 0; }
+    .ms-option-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
+    .ms-option-count { font-size: .75rem; color: #a0aec0; flex-shrink: 0; }
 
     /* ── Responsive ── */
     @media (max-width: 500px) {
@@ -198,8 +322,9 @@
     <input type="file" id="file-input" accept=".csv,text/csv" />
   </div>
   <div id="file-name"></div>
-  <div style="margin-top:1rem;">
+  <div style="margin-top:1rem; display:flex; flex-wrap:wrap; align-items:center; gap:.5rem;">
     <button id="summary-btn" disabled>High level summary</button>
+    <button id="sizer-btn" disabled>Audience Sizer</button>
     <button id="clear-btn" style="display:none;">Clear</button>
   </div>
 </div>
@@ -209,35 +334,47 @@
   <div class="columns-grid" id="columns-grid"></div>
 </div>
 
+<div class="card" id="sizer">
+  <div class="sizer-header">
+    <div>
+      <h2>🎯 Audience Sizer</h2>
+    </div>
+    <div style="display:flex;align-items:center;gap:.75rem;flex-wrap:wrap;">
+      <button class="reset-filters-btn" id="reset-filters-btn">Reset all filters</button>
+      <div class="audience-count">
+        <div class="ac-num" id="ac-num">—</div>
+        <div class="ac-pct" id="ac-pct"></div>
+        <div class="ac-lbl">Audience size</div>
+      </div>
+    </div>
+  </div>
+  <div class="filters-grid" id="filters-grid"></div>
+</div>
+
 <script>
-// ─── CSV parser (handles quoted fields) ───────────────────────────────────────
+// ─── CSV parser ───────────────────────────────────────────────────────────────
 function parseCSV(text) {
   const rows = [];
   let i = 0, n = text.length;
-
   while (i < n) {
     const row = [];
     while (i < n) {
       let field = '';
       if (text[i] === '"') {
-        i++; // skip opening quote
+        i++;
         while (i < n) {
           if (text[i] === '"' && text[i + 1] === '"') { field += '"'; i += 2; }
           else if (text[i] === '"') { i++; break; }
           else { field += text[i++]; }
         }
-        // skip to comma or newline
         while (i < n && text[i] !== ',' && text[i] !== '\n' && text[i] !== '\r') i++;
       } else {
-        while (i < n && text[i] !== ',' && text[i] !== '\n' && text[i] !== '\r') {
-          field += text[i++];
-        }
+        while (i < n && text[i] !== ',' && text[i] !== '\n' && text[i] !== '\r') field += text[i++];
       }
       row.push(field.trim());
       if (i < n && text[i] === ',') { i++; continue; }
       break;
     }
-    // skip \r\n or \n
     if (i < n && text[i] === '\r') i++;
     if (i < n && text[i] === '\n') i++;
     if (row.length > 0 && !(row.length === 1 && row[0] === '')) rows.push(row);
@@ -245,30 +382,26 @@ function parseCSV(text) {
   return rows;
 }
 
-// ─── Column type detection ────────────────────────────────────────────────────
+// ─── Type detection helpers ───────────────────────────────────────────────────
 const ID_PATTERNS = /\bid\b|_id$|^id_/i;
 const ID_WORDS = ['id', 'uuid', 'guid', 'identifier', 'key', 'pk', 'fk'];
 
 function isIdColumn(name, values) {
   const lower = name.toLowerCase().replace(/[\s_-]/g, '');
   if (ID_WORDS.some(w => lower === w) || ID_PATTERNS.test(name)) return true;
-  // check uniqueness: if >90% unique values look like IDs
   const nonEmpty = values.filter(v => v !== '');
   if (nonEmpty.length === 0) return false;
   const unique = new Set(nonEmpty).size;
   const ratio = unique / nonEmpty.length;
-  // also check they look like IDs (numeric sequence or uuid-like)
   const looksNumeric = nonEmpty.every(v => /^\d+$/.test(v));
   const looksUUID = nonEmpty.every(v => /^[0-9a-f-]{8,}$/i.test(v));
   return ratio > 0.95 && (looksNumeric || looksUUID);
 }
 
-// Common date formats: YYYY-MM-DD, DD/MM/YYYY, DD-Mon-YYYY, ISO 8601, etc.
 const DATE_RE = /^\d{4}-\d{2}-\d{2}([ T]\d{2}:\d{2}(:\d{2})?.*)?$|^\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}$|^\d{1,2}[ \-](jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*[ \-]\d{2,4}$/i;
 
 function parseDate(v) {
   if (!DATE_RE.test(v)) return null;
-  // Handle dd/mm/yyyy and dd-mm-yyyy explicitly to avoid browser misinterpretation
   const dmySlash = v.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
   if (dmySlash) {
     const [, d, m, y] = dmySlash;
@@ -290,8 +423,24 @@ function parseDate(v) {
 function isDateColumn(values) {
   const nonEmpty = values.filter(v => v !== '');
   if (nonEmpty.length === 0) return false;
-  const dateCount = nonEmpty.filter(v => parseDate(v) !== null).length;
-  return dateCount / nonEmpty.length >= 0.85;
+  return nonEmpty.filter(v => parseDate(v) !== null).length / nonEmpty.length >= 0.85;
+}
+
+function stripNumeric(v) {
+  return v.replace(/[£$€¥₹,�]/g, '').trim();
+}
+
+function isNumericColumn(values) {
+  const nonEmpty = values.filter(v => v !== '');
+  if (nonEmpty.length === 0) return false;
+  return nonEmpty.filter(v => { const s = stripNumeric(v); return s !== '' && !isNaN(parseFloat(s)) && isFinite(s); }).length / nonEmpty.length >= 0.85;
+}
+
+function numStats(values) {
+  const nums = values.map(v => parseFloat(stripNumeric(v))).filter(v => !isNaN(v));
+  if (nums.length === 0) return null;
+  const sorted = [...nums].sort((a, b) => a - b);
+  return { min: sorted[0], max: sorted[sorted.length - 1], mean: nums.reduce((a, b) => a + b, 0) / nums.length, count: nums.length };
 }
 
 function dateStats(values, totalRows) {
@@ -300,58 +449,33 @@ function dateStats(values, totalRows) {
   dates.sort((a, b) => a - b);
   const fmtDate = d => d.toISOString().slice(0, 10);
   const yearFreq = {};
-  for (const d of dates) {
-    const y = d.getFullYear();
-    yearFreq[y] = (yearFreq[y] || 0) + 1;
-  }
-  const years = Object.entries(yearFreq)
-    .sort((a, b) => a[0] - b[0])
-    .map(([yr, cnt]) => ({ yr, cnt, pct: cnt / totalRows * 100 }));
+  for (const d of dates) { const y = d.getFullYear(); yearFreq[y] = (yearFreq[y] || 0) + 1; }
+  const years = Object.entries(yearFreq).sort((a, b) => a[0] - b[0]).map(([yr, cnt]) => ({ yr, cnt, pct: cnt / totalRows * 100 }));
   return { min: fmtDate(dates[0]), max: fmtDate(dates[dates.length - 1]), years };
-}
-
-// Strip currency symbols, thousands separators, and the Unicode replacement char
-// (£ in Windows-1252 files read as UTF-8 becomes �)
-function stripNumeric(v) {
-  return v.replace(/[£$€¥₹,�]/g, '').trim();
-}
-
-function isNumericColumn(values) {
-  const nonEmpty = values.filter(v => v !== '');
-  if (nonEmpty.length === 0) return false;
-  const numericCount = nonEmpty.filter(v => { const s = stripNumeric(v); return s !== '' && !isNaN(parseFloat(s)) && isFinite(s); }).length;
-  return numericCount / nonEmpty.length >= 0.85;
-}
-
-function numStats(values) {
-  const nums = values.map(v => parseFloat(stripNumeric(v))).filter(v => !isNaN(v));
-  if (nums.length === 0) return null;
-  const sorted = [...nums].sort((a, b) => a - b);
-  const sum = nums.reduce((a, b) => a + b, 0);
-  return {
-    min: sorted[0],
-    max: sorted[sorted.length - 1],
-    mean: sum / nums.length,
-    count: nums.length,
-  };
 }
 
 function catStats(values, totalRows) {
   const freq = {};
-  for (const v of values) {
-    const key = v === '' ? '(empty)' : v;
-    freq[key] = (freq[key] || 0) + 1;
-  }
-  return Object.entries(freq)
-    .sort((a, b) => b[1] - a[1])
-    .map(([val, cnt]) => ({ val, cnt, pct: (cnt / totalRows * 100) }));
+  for (const v of values) { const key = v === '' ? '(empty)' : v; freq[key] = (freq[key] || 0) + 1; }
+  return Object.entries(freq).sort((a, b) => b[1] - a[1]).map(([val, cnt]) => ({ val, cnt, pct: cnt / totalRows * 100 }));
 }
 
-// ─── Formatting helpers ───────────────────────────────────────────────────────
 function fmt(n) {
   if (Math.abs(n) >= 1e6) return (n / 1e6).toFixed(2) + 'M';
   if (Math.abs(n) >= 1e3) return (n / 1e3).toFixed(2) + 'K';
   return Number.isInteger(n) ? n.toString() : n.toFixed(4).replace(/\.?0+$/, '');
+}
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ─── Detect column type for all columns ──────────────────────────────────────
+function detectColumnType(name, values) {
+  if (isIdColumn(name, values)) return 'id';
+  if (isDateColumn(values)) return 'date';
+  if (isNumericColumn(values)) return 'numeric';
+  return 'category';
 }
 
 // ─── Render summary ───────────────────────────────────────────────────────────
@@ -359,49 +483,43 @@ function renderSummary(headers, dataRows) {
   const nRows = dataRows.length;
   const nCols = headers.length;
 
-  // meta
-  const metaGrid = document.getElementById('meta-grid');
-  metaGrid.innerHTML = `
+  document.getElementById('meta-grid').innerHTML = `
     <div class="meta-item"><div class="val">${nRows.toLocaleString()}</div><div class="lbl">Rows</div></div>
     <div class="meta-item"><div class="val">${nCols.toLocaleString()}</div><div class="lbl">Columns</div></div>
   `;
 
-  // columns
   const colGrid = document.getElementById('columns-grid');
   colGrid.innerHTML = '';
 
   headers.forEach((hdr, ci) => {
     const values = dataRows.map(r => (r[ci] ?? '').trim());
-    const nullCount = values.filter(v => v === '' || v.toLowerCase() === 'null' || v.toLowerCase() === 'na' || v.toLowerCase() === 'n/a').length;
+    const nullCount = values.filter(v => v === '' || /^(null|na|n\/a)$/i.test(v)).length;
     const nullHtml = nullCount > 0
       ? `<div class="stat-row null-row"><span class="sk">Null / empty</span><span class="sv"><span class="null-pill">${nullCount.toLocaleString()} (${(nullCount/nRows*100).toFixed(1)}%)</span></span></div>`
       : '';
 
-    let type, cardClass, html;
+    const type = detectColumnType(hdr, values);
+    let cardClass, html;
 
-    if (isIdColumn(hdr, values)) {
-      type = 'ID'; cardClass = 'type-id';
+    if (type === 'id') {
+      cardClass = 'type-id';
       const unique = new Set(values.filter(v => v !== '')).size;
       html = `
         <div class="stat-row"><span class="sk">Unique values</span><span class="sv">${unique.toLocaleString()}</span></div>
         <div class="stat-row"><span class="sk">Notes</span><span class="sv">Identifier column</span></div>
         ${nullHtml}
       `;
-    } else if (isDateColumn(values)) {
-      type = 'Date'; cardClass = 'type-date';
+    } else if (type === 'date') {
+      cardClass = 'type-date';
       const s = dateStats(values, nRows);
-      const barColor = '#4299e1';
       const maxYearCnt = s ? Math.max(...s.years.map(y => y.cnt)) : 1;
       const yearRows = s ? s.years.map(y => `
         <tr>
           <td style="padding-right:.5rem;">${y.yr}</td>
-          <td style="width:80px;">
-            <div class="bar-bg"><div class="bar-fill" style="width:${(y.cnt/maxYearCnt*100).toFixed(1)}%;background:${barColor}"></div></div>
-          </td>
+          <td style="width:80px;"><div class="bar-bg"><div class="bar-fill" style="width:${(y.cnt/maxYearCnt*100).toFixed(1)}%;background:#4299e1"></div></div></td>
           <td>${y.cnt.toLocaleString()}</td>
           <td>${y.pct.toFixed(1)}%</td>
-        </tr>
-      `).join('') : '';
+        </tr>`).join('') : '';
       html = s ? `
         <div class="stat-row"><span class="sk">Min date</span><span class="sv">${s.min}</span></div>
         <div class="stat-row"><span class="sk">Max date</span><span class="sv">${s.max}</span></div>
@@ -409,51 +527,40 @@ function renderSummary(headers, dataRows) {
           <thead><tr><th>Year</th><th></th><th>Count</th><th>%</th></tr></thead>
           <tbody>${yearRows}</tbody>
         </table>
-        ${nullHtml}
-      ` : '<em>No valid dates found</em>';
-    } else if (isNumericColumn(values)) {
-      type = 'Numeric'; cardClass = 'type-numeric';
+        ${nullHtml}` : '<em>No valid dates found</em>';
+    } else if (type === 'numeric') {
+      cardClass = 'type-numeric';
       const s = numStats(values);
       html = s ? `
         <div class="stat-row"><span class="sk">Min</span><span class="sv">${fmt(s.min)}</span></div>
         <div class="stat-row"><span class="sk">Mean</span><span class="sv">${fmt(s.mean)}</span></div>
         <div class="stat-row"><span class="sk">Max</span><span class="sv">${fmt(s.max)}</span></div>
         <div class="stat-row"><span class="sk">Non-null count</span><span class="sv">${s.count.toLocaleString()}</span></div>
-        ${nullHtml}
-      ` : '<em>No valid numbers found</em>';
+        ${nullHtml}` : '<em>No valid numbers found</em>';
     } else {
-      type = 'Categorical'; cardClass = 'type-category';
+      cardClass = 'type-category';
       const cats = catStats(values, nRows);
       const show = cats.slice(0, 8);
       const maxCnt = show[0]?.cnt || 1;
       const tableRows = show.map(c => `
         <tr>
           <td style="padding-right:.5rem;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${escHtml(c.val)}">${escHtml(c.val)}</td>
-          <td style="width:80px;">
-            <div class="bar-bg"><div class="bar-fill" style="width:${(c.cnt/maxCnt*100).toFixed(1)}%"></div></div>
-          </td>
+          <td style="width:80px;"><div class="bar-bg"><div class="bar-fill" style="width:${(c.cnt/maxCnt*100).toFixed(1)}%"></div></div></td>
           <td>${c.cnt.toLocaleString()}</td>
           <td>${c.pct.toFixed(1)}%</td>
-        </tr>
-      `).join('');
+        </tr>`).join('');
       const more = cats.length > 8 ? `<p class="more-hint">+ ${cats.length - 8} more unique values</p>` : '';
       html = `
         <table class="cat-table">
           <thead><tr><th>Value</th><th></th><th>Count</th><th>%</th></tr></thead>
           <tbody>${tableRows}</tbody>
         </table>
-        ${more}
-        ${nullHtml}
-      `;
+        ${more}${nullHtml}`;
     }
 
     const card = document.createElement('div');
     card.className = `col-card ${cardClass}`;
-    card.innerHTML = `
-      <h3>${escHtml(hdr)}</h3>
-      <span class="col-type-badge">${type}</span>
-      ${html}
-    `;
+    card.innerHTML = `<h3>${escHtml(hdr)}</h3><span class="col-type-badge">${type === 'id' ? 'ID' : type.charAt(0).toUpperCase() + type.slice(1)}</span>${html}`;
     colGrid.appendChild(card);
   });
 
@@ -461,27 +568,242 @@ function renderSummary(headers, dataRows) {
   document.getElementById('summary').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
-function escHtml(s) {
-  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+// ─── Audience Sizer ───────────────────────────────────────────────────────────
+let columnMeta = [];   // [{ name, type, colIndex, ... }]
+let filterState = {};  // keyed by colIndex
+
+function buildColumnMeta(headers, dataRows) {
+  columnMeta = [];
+  headers.forEach((hdr, ci) => {
+    const values = dataRows.map(r => (r[ci] ?? '').trim());
+    const type = detectColumnType(hdr, values);
+    if (type === 'id') return; // skip IDs
+
+    const meta = { name: hdr, type, ci };
+
+    if (type === 'numeric') {
+      const s = numStats(values);
+      meta.min = s ? s.min : 0;
+      meta.max = s ? s.max : 0;
+    } else if (type === 'date') {
+      const dates = values.map(v => parseDate(v)).filter(Boolean).sort((a, b) => a - b);
+      meta.minDate = dates.length ? dates[0].toISOString().slice(0, 10) : '';
+      meta.maxDate = dates.length ? dates[dates.length - 1].toISOString().slice(0, 10) : '';
+    } else {
+      const freq = {};
+      for (const v of values) { const k = v === '' ? '(empty)' : v; freq[k] = (freq[k] || 0) + 1; }
+      meta.options = Object.entries(freq).sort((a, b) => b[1] - a[1]).map(([val, cnt]) => ({ val, cnt }));
+    }
+    columnMeta.push(meta);
+  });
 }
+
+function initFilterState() {
+  filterState = {};
+  columnMeta.forEach(m => {
+    if (m.type === 'numeric') {
+      filterState[m.ci] = { from: m.min, to: m.max };
+    } else if (m.type === 'date') {
+      filterState[m.ci] = { from: m.minDate, to: m.maxDate };
+    } else {
+      filterState[m.ci] = { selected: new Set(m.options.map(o => o.val)) };
+    }
+  });
+}
+
+function countFiltered() {
+  return parsedData.filter(row => {
+    return columnMeta.every(m => {
+      const v = (row[m.ci] ?? '').trim();
+      const fs = filterState[m.ci];
+      if (m.type === 'numeric') {
+        const n = parseFloat(stripNumeric(v));
+        if (isNaN(n)) return true; // nulls pass through
+        return n >= fs.from && n <= fs.to;
+      } else if (m.type === 'date') {
+        const d = parseDate(v);
+        if (!d) return true;
+        const iso = d.toISOString().slice(0, 10);
+        return iso >= fs.from && iso <= fs.to;
+      } else {
+        const key = v === '' ? '(empty)' : v;
+        return fs.selected.has(key);
+      }
+    });
+  }).length;
+}
+
+function updateAudienceCount() {
+  const count = countFiltered();
+  const total = parsedData.length;
+  const pct = total > 0 ? (count / total * 100).toFixed(1) : '0.0';
+  document.getElementById('ac-num').textContent = count.toLocaleString();
+  document.getElementById('ac-pct').textContent = `${pct}% of ${total.toLocaleString()} total`;
+}
+
+function renderSizer(headers, dataRows) {
+  buildColumnMeta(headers, dataRows);
+  initFilterState();
+
+  const grid = document.getElementById('filters-grid');
+  grid.innerHTML = '';
+
+  columnMeta.forEach(m => {
+    const card = document.createElement('div');
+    card.className = 'filter-card';
+
+    if (m.type === 'numeric') {
+      card.innerHTML = `
+        <h4>${escHtml(m.name)}</h4>
+        <div class="filter-type-label">Numeric range</div>
+        <div class="range-inputs">
+          <input type="text" id="f-from-${m.ci}" value="${m.min}" aria-label="From" />
+          <span class="range-sep">to</span>
+          <input type="text" id="f-to-${m.ci}" value="${m.max}" aria-label="To" />
+        </div>`;
+      card.querySelector(`#f-from-${m.ci}`).addEventListener('input', e => {
+        const v = parseFloat(stripNumeric(e.target.value));
+        if (!isNaN(v)) { filterState[m.ci].from = v; updateAudienceCount(); }
+      });
+      card.querySelector(`#f-to-${m.ci}`).addEventListener('input', e => {
+        const v = parseFloat(stripNumeric(e.target.value));
+        if (!isNaN(v)) { filterState[m.ci].to = v; updateAudienceCount(); }
+      });
+
+    } else if (m.type === 'date') {
+      card.innerHTML = `
+        <h4>${escHtml(m.name)}</h4>
+        <div class="filter-type-label">Date range</div>
+        <div class="range-inputs">
+          <input type="date" id="f-from-${m.ci}" value="${m.minDate}" aria-label="From" />
+          <span class="range-sep">to</span>
+          <input type="date" id="f-to-${m.ci}" value="${m.maxDate}" aria-label="To" />
+        </div>`;
+      card.querySelector(`#f-from-${m.ci}`).addEventListener('change', e => {
+        filterState[m.ci].from = e.target.value;
+        updateAudienceCount();
+      });
+      card.querySelector(`#f-to-${m.ci}`).addEventListener('change', e => {
+        filterState[m.ci].to = e.target.value;
+        updateAudienceCount();
+      });
+
+    } else {
+      // Categorical multiselect
+      const triggerId = `ms-trigger-${m.ci}`;
+      const dropId = `ms-drop-${m.ci}`;
+      const searchId = `ms-search-${m.ci}`;
+
+      card.innerHTML = `
+        <h4>${escHtml(m.name)}</h4>
+        <div class="filter-type-label">Category filter</div>
+        <div class="ms-wrapper">
+          <button class="ms-trigger" id="${triggerId}" type="button" aria-haspopup="listbox" aria-expanded="false">
+            <span class="ms-trigger-text">All selected</span>
+            <i class="ms-chevron">▾</i>
+          </button>
+          <div class="ms-dropdown" id="${dropId}" role="listbox">
+            <div class="ms-actions">
+              <button type="button" data-ci="${m.ci}" data-action="all">Select all</button>
+              <button type="button" data-ci="${m.ci}" data-action="none">Clear all</button>
+            </div>
+            <input type="search" class="ms-search" id="${searchId}" placeholder="Search…" />
+            <div class="ms-options-list" id="ms-opts-${m.ci}"></div>
+          </div>
+        </div>`;
+
+      // render option checkboxes
+      function renderOptions(filter) {
+        const list = card.querySelector(`#ms-opts-${m.ci}`);
+        list.innerHTML = '';
+        const opts = filter ? m.options.filter(o => o.val.toLowerCase().includes(filter.toLowerCase())) : m.options;
+        opts.forEach(o => {
+          const checked = filterState[m.ci].selected.has(o.val) ? 'checked' : '';
+          const div = document.createElement('label');
+          div.className = 'ms-option';
+          div.innerHTML = `<input type="checkbox" value="${escHtml(o.val)}" ${checked} /><span class="ms-option-label" title="${escHtml(o.val)}">${escHtml(o.val)}</span><span class="ms-option-count">${o.cnt.toLocaleString()}</span>`;
+          div.querySelector('input').addEventListener('change', ev => {
+            if (ev.target.checked) filterState[m.ci].selected.add(o.val);
+            else filterState[m.ci].selected.delete(o.val);
+            updateTriggerLabel(m.ci);
+            updateAudienceCount();
+          });
+          list.appendChild(div);
+        });
+      }
+
+      function updateTriggerLabel(ci) {
+        const meta = columnMeta.find(x => x.ci === ci);
+        const sel = filterState[ci].selected.size;
+        const total = meta.options.length;
+        const trigger = document.getElementById(`ms-trigger-${ci}`);
+        trigger.querySelector('.ms-trigger-text').textContent =
+          sel === total ? 'All selected' : sel === 0 ? 'None selected' : `${sel} of ${total} selected`;
+      }
+
+      renderOptions('');
+
+      // toggle dropdown
+      const trigger = card.querySelector(`#${triggerId}`);
+      const drop = card.querySelector(`#${dropId}`);
+      trigger.addEventListener('click', e => {
+        e.stopPropagation();
+        const isOpen = drop.classList.contains('open');
+        closeAllDropdowns();
+        if (!isOpen) { drop.classList.add('open'); trigger.classList.add('open'); trigger.setAttribute('aria-expanded', 'true'); }
+      });
+
+      // search
+      card.querySelector(`#${searchId}`).addEventListener('input', e => renderOptions(e.target.value));
+
+      // select all / clear all
+      card.querySelector('.ms-actions').addEventListener('click', e => {
+        const btn = e.target.closest('button[data-action]');
+        if (!btn) return;
+        const ci = parseInt(btn.dataset.ci);
+        const meta = columnMeta.find(x => x.ci === ci);
+        if (btn.dataset.action === 'all') filterState[ci].selected = new Set(meta.options.map(o => o.val));
+        else filterState[ci].selected = new Set();
+        renderOptions(card.querySelector(`#ms-search-${ci}`).value);
+        updateTriggerLabel(ci);
+        updateAudienceCount();
+      });
+    }
+
+    grid.appendChild(card);
+  });
+
+  updateAudienceCount();
+  document.getElementById('sizer').style.display = 'block';
+  document.getElementById('sizer').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function closeAllDropdowns() {
+  document.querySelectorAll('.ms-dropdown.open').forEach(d => d.classList.remove('open'));
+  document.querySelectorAll('.ms-trigger.open').forEach(t => { t.classList.remove('open'); t.setAttribute('aria-expanded', 'false'); });
+}
+
+document.addEventListener('click', closeAllDropdowns);
+
+document.getElementById('reset-filters-btn').addEventListener('click', () => {
+  initFilterState();
+  // re-render sizer to restore all inputs
+  renderSizer(parsedHeaders, parsedData);
+});
 
 // ─── App state & wiring ───────────────────────────────────────────────────────
 let parsedHeaders = null;
 let parsedData = null;
 
 function loadFile(file) {
-  if (!file || !file.name.toLowerCase().endsWith('.csv')) {
-    alert('Please upload a valid .csv file.');
-    return;
-  }
+  if (!file || !file.name.toLowerCase().endsWith('.csv')) { alert('Please upload a valid .csv file.'); return; }
   const reader = new FileReader();
   reader.onload = e => {
     let text = e.target.result;
-    // If UTF-8 produced replacement chars, re-read as Windows-1252
     if (text.includes('�')) {
-      const reader2 = new FileReader();
-      reader2.onload = e2 => finishLoad(file, e2.target.result);
-      reader2.readAsText(file, 'windows-1252');
+      const r2 = new FileReader();
+      r2.onload = e2 => finishLoad(file, e2.target.result);
+      r2.readAsText(file, 'windows-1252');
       return;
     }
     finishLoad(file, text);
@@ -496,11 +818,12 @@ function finishLoad(file, text) {
   parsedData = rows.slice(1);
   document.getElementById('file-name').textContent = `✔ ${file.name}  (${rows.length - 1} data rows detected)`;
   document.getElementById('summary-btn').disabled = false;
+  document.getElementById('sizer-btn').disabled = false;
   document.getElementById('clear-btn').style.display = 'inline-block';
   document.getElementById('summary').style.display = 'none';
+  document.getElementById('sizer').style.display = 'none';
 }
 
-// Drop zone
 const dropZone = document.getElementById('drop-zone');
 const fileInput = document.getElementById('file-input');
 
@@ -509,26 +832,28 @@ dropZone.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === '
 dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
 dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
 dropZone.addEventListener('drop', e => {
-  e.preventDefault();
-  dropZone.classList.remove('drag-over');
-  const file = e.dataTransfer.files[0];
-  loadFile(file);
+  e.preventDefault(); dropZone.classList.remove('drag-over');
+  loadFile(e.dataTransfer.files[0]);
 });
 fileInput.addEventListener('change', () => loadFile(fileInput.files[0]));
 
-// Buttons
 document.getElementById('summary-btn').addEventListener('click', () => {
   if (parsedHeaders && parsedData) renderSummary(parsedHeaders, parsedData);
 });
 
+document.getElementById('sizer-btn').addEventListener('click', () => {
+  if (parsedHeaders && parsedData) renderSizer(parsedHeaders, parsedData);
+});
+
 document.getElementById('clear-btn').addEventListener('click', () => {
-  parsedHeaders = null;
-  parsedData = null;
+  parsedHeaders = null; parsedData = null;
   fileInput.value = '';
   document.getElementById('file-name').textContent = '';
   document.getElementById('summary-btn').disabled = true;
+  document.getElementById('sizer-btn').disabled = true;
   document.getElementById('clear-btn').style.display = 'none';
   document.getElementById('summary').style.display = 'none';
+  document.getElementById('sizer').style.display = 'none';
 });
 </script>
 </body>
