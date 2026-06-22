@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Single Customer View Analyser</title>
+  <script src="https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -87,6 +88,8 @@
 
     #clear-btn { background: #e2e8f0; color: #4a5568; margin-left: .75rem; margin-top: 1rem; }
     #clear-btn:hover { background: #cbd5e0; }
+    #pptx-btn { background: #d69e2e; color: #fff; margin-left: .25rem; margin-top: 1rem; }
+    #pptx-btn:hover { background: #b7791f; }
 
     /* ── Summary output ── */
     #summary { display: none; }
@@ -426,6 +429,7 @@
     <button id="corr-btn" disabled>Correlation Analysis</button>
     <button id="dist-btn" disabled>Distribution View</button>
     <button id="clear-btn" style="display:none;">Clear</button>
+    <button id="pptx-btn" style="display:none;">Download as PPTX</button>
   </div>
 </div>
 
@@ -998,6 +1002,9 @@ function renderCorrelation(headers, dataRows) {
     }
   }
 
+  lastCorrNumCols = numCols;
+  lastCorrRMatrix = rMatrix;
+
   // Build heatmap table
   const table = document.getElementById('heatmap-table');
   let html = '<thead><tr><th></th>';
@@ -1327,6 +1334,8 @@ function drawBoxPlot(numCols, catCols, dataRows) {
 // ─── App state & wiring ───────────────────────────────────────────────────────
 let parsedHeaders = null;
 let parsedData = null;
+let lastCorrNumCols = null;
+let lastCorrRMatrix = null;
 
 function loadFile(file) {
   if (!file || !file.name.toLowerCase().endsWith('.csv')) { alert('Please upload a valid .csv file.'); return; }
@@ -1355,6 +1364,7 @@ function finishLoad(file, text) {
   document.getElementById('corr-btn').disabled = false;
   document.getElementById('dist-btn').disabled = false;
   document.getElementById('clear-btn').style.display = 'inline-block';
+  document.getElementById('pptx-btn').style.display = 'inline-block';
   document.getElementById('summary').style.display = 'none';
   document.getElementById('sizer').style.display = 'none';
   document.getElementById('corr').style.display = 'none';
@@ -1399,11 +1409,213 @@ document.getElementById('clear-btn').addEventListener('click', () => {
   document.getElementById('corr-btn').disabled = true;
   document.getElementById('dist-btn').disabled = true;
   document.getElementById('clear-btn').style.display = 'none';
+  document.getElementById('pptx-btn').style.display = 'none';
   document.getElementById('summary').style.display = 'none';
   document.getElementById('sizer').style.display = 'none';
   document.getElementById('corr').style.display = 'none';
   document.getElementById('dist').style.display = 'none';
+  lastCorrNumCols = null; lastCorrRMatrix = null;
 });
+
+document.getElementById('pptx-btn').addEventListener('click', downloadPPTX);
+
+async function downloadPPTX() {
+  const pptx = new PptxGenJS();
+  pptx.layout = 'LAYOUT_WIDE';
+
+  const TITLE_COLOR = '1a202c';
+  const ACCENT = '4299e1';
+
+  function addTitleSlide() {
+    const slide = pptx.addSlide();
+    slide.background = { color: 'f0f4f8' };
+    slide.addText('Single Customer View Analyser', {
+      x: 0.5, y: 1.5, w: 12, h: 1.2,
+      fontSize: 36, bold: true, color: TITLE_COLOR, align: 'center'
+    });
+    slide.addText('CSV Analysis Report', {
+      x: 0.5, y: 2.9, w: 12, h: 0.7,
+      fontSize: 20, color: '4a5568', align: 'center'
+    });
+    const fn = document.getElementById('file-name').textContent;
+    if (fn) {
+      slide.addText(fn.replace('✔ ', ''), {
+        x: 0.5, y: 3.8, w: 12, h: 0.5,
+        fontSize: 14, color: '718096', align: 'center'
+      });
+    }
+  }
+
+  function addSectionHeading(slide, title, color) {
+    slide.addText(title, {
+      x: 0.4, y: 0.2, w: 12.5, h: 0.55,
+      fontSize: 20, bold: true, color: color || ACCENT
+    });
+  }
+
+  function canvasToDataURL(id) {
+    const c = document.getElementById(id);
+    if (!c || c.style.display === 'none') return null;
+    try { return c.toDataURL('image/png'); } catch(e) { return null; }
+  }
+
+  // Title
+  addTitleSlide();
+
+  // Summary slide
+  const summaryEl = document.getElementById('summary');
+  if (summaryEl && summaryEl.style.display !== 'none') {
+    const metaGrid = document.getElementById('meta-grid');
+    const colsGrid = document.getElementById('columns-grid');
+    const slide = pptx.addSlide();
+    slide.background = { color: 'ffffff' };
+    addSectionHeading(slide, 'High Level Summary', '4299e1');
+
+    // Meta stats as text
+    const metaItems = metaGrid ? Array.from(metaGrid.querySelectorAll('.meta-item')).map(el => {
+      const label = el.querySelector('.meta-label')?.textContent || '';
+      const value = el.querySelector('.meta-value')?.textContent || '';
+      return `${label}: ${value}`;
+    }) : [];
+    if (metaItems.length) {
+      slide.addText(metaItems.join('   |   '), {
+        x: 0.4, y: 0.9, w: 12.5, h: 0.5,
+        fontSize: 11, color: '4a5568'
+      });
+    }
+
+    // Column cards as table rows
+    const cards = colsGrid ? Array.from(colsGrid.querySelectorAll('.col-card')) : [];
+    const rows = [
+      [
+        { text: 'Column', options: { bold: true, fill: { color: ACCENT }, color: 'ffffff' } },
+        { text: 'Type', options: { bold: true, fill: { color: ACCENT }, color: 'ffffff' } },
+        { text: 'Details', options: { bold: true, fill: { color: ACCENT }, color: 'ffffff' } }
+      ]
+    ];
+    cards.forEach(card => {
+      const name = card.querySelector('.col-name')?.textContent || '';
+      const badge = card.querySelector('.type-badge')?.textContent || '';
+      const stats = Array.from(card.querySelectorAll('.stat-row')).map(r => r.textContent.trim()).join(' | ');
+      rows.push([
+        { text: name, options: { fontSize: 9 } },
+        { text: badge, options: { fontSize: 9 } },
+        { text: stats, options: { fontSize: 8 } }
+      ]);
+    });
+    if (rows.length > 1) {
+      slide.addTable(rows, {
+        x: 0.4, y: 1.5, w: 12.5,
+        fontSize: 9, border: { type: 'solid', color: 'e2e8f0', pt: 0.5 },
+        colW: [2.5, 1.2, 8.8]
+      });
+    }
+  }
+
+  // Audience Sizer slide
+  const sizerEl = document.getElementById('sizer');
+  if (sizerEl && sizerEl.style.display !== 'none') {
+    const slide = pptx.addSlide();
+    slide.background = { color: 'ffffff' };
+    addSectionHeading(slide, 'Audience Sizer', '805ad5');
+
+    const countEl = document.getElementById('sizer-count');
+    const countText = countEl ? countEl.textContent : '';
+    slide.addText(countText, {
+      x: 0.4, y: 0.9, w: 12.5, h: 0.6,
+      fontSize: 16, bold: true, color: '1a202c'
+    });
+
+    // Active filters
+    const filterRows = [];
+    const filterEls = sizerEl.querySelectorAll('.filter-group');
+    filterEls.forEach(fg => {
+      const label = fg.querySelector('label')?.textContent || '';
+      let value = '';
+      const range = fg.querySelectorAll('input[type=range]');
+      if (range.length === 2) {
+        value = `${range[0].value} – ${range[1].value}`;
+      } else {
+        const selected = Array.from(fg.querySelectorAll('input[type=checkbox]:checked')).map(cb => cb.value);
+        value = selected.join(', ') || '(all)';
+      }
+      filterRows.push([{ text: label, options: { fontSize: 10, bold: true } }, { text: value, options: { fontSize: 10 } }]);
+    });
+    if (filterRows.length) {
+      slide.addTable([[
+        { text: 'Filter', options: { bold: true, fill: { color: '805ad5' }, color: 'ffffff' } },
+        { text: 'Value', options: { bold: true, fill: { color: '805ad5' }, color: 'ffffff' } }
+      ], ...filterRows], {
+        x: 0.4, y: 1.7, w: 12.5, colW: [3.5, 9], fontSize: 10,
+        border: { type: 'solid', color: 'e2e8f0', pt: 0.5 }
+      });
+    }
+  }
+
+  // Correlation heatmap slide
+  const corrEl = document.getElementById('corr');
+  if (corrEl && corrEl.style.display !== 'none' && lastCorrNumCols && lastCorrRMatrix) {
+    const slide = pptx.addSlide();
+    slide.background = { color: 'ffffff' };
+    addSectionHeading(slide, 'Correlation Analysis', 'e53e3e');
+
+    // Rebuild heatmap as PPTX table
+    const n = lastCorrNumCols.length;
+    const header = [{ text: '', options: { fill: { color: 'f7fafc' } } }];
+    lastCorrNumCols.forEach(c => header.push({ text: c.name, options: { bold: true, fontSize: 8, fill: { color: 'f7fafc' }, align: 'center' } }));
+    const tableRows = [header];
+    for (let i = 0; i < n; i++) {
+      const row = [{ text: lastCorrNumCols[i].name, options: { bold: true, fontSize: 8 } }];
+      for (let j = 0; j < n; j++) {
+        const r = lastCorrRMatrix[i][j];
+        const val = isNaN(r) ? '' : r.toFixed(2);
+        const abs = isNaN(r) ? 0 : Math.abs(r);
+        const intensity = Math.round(abs * 200);
+        let fillColor = 'ffffff';
+        if (!isNaN(r) && i !== j) {
+          if (r > 0) {
+            const hex = (255 - intensity).toString(16).padStart(2, '0');
+            fillColor = `${hex}${hex}ff`;
+          } else {
+            const hex = (255 - intensity).toString(16).padStart(2, '0');
+            fillColor = `ff${hex}${hex}`;
+          }
+        }
+        row.push({ text: val, options: { fontSize: 8, align: 'center', fill: { color: fillColor } } });
+      }
+      tableRows.push(row);
+    }
+    const cellW = Math.min(1.5, 12.5 / (n + 1));
+    slide.addTable(tableRows, {
+      x: 0.4, y: 0.9, w: 12.5,
+      colW: Array(n + 1).fill(cellW),
+      border: { type: 'solid', color: 'e2e8f0', pt: 0.5 }
+    });
+
+    // Scatter canvas if visible
+    const scatterDataURL = canvasToDataURL('scatter-canvas');
+    if (scatterDataURL) {
+      const scatterSlide = pptx.addSlide();
+      scatterSlide.background = { color: 'ffffff' };
+      addSectionHeading(scatterSlide, 'Scatter Plot', 'e53e3e');
+      scatterSlide.addImage({ data: scatterDataURL, x: 1.5, y: 0.9, w: 10, h: 6 });
+    }
+  }
+
+  // Distribution slide
+  const distEl = document.getElementById('dist');
+  if (distEl && distEl.style.display !== 'none') {
+    const boxDataURL = canvasToDataURL('box-canvas');
+    if (boxDataURL) {
+      const slide = pptx.addSlide();
+      slide.background = { color: 'ffffff' };
+      addSectionHeading(slide, 'Distribution View', '38a169');
+      slide.addImage({ data: boxDataURL, x: 0.4, y: 0.9, w: 12.5, h: 6.2 });
+    }
+  }
+
+  pptx.writeFile({ fileName: 'SCV_Analysis.pptx' });
+}
 </script>
 </body>
 </html>
