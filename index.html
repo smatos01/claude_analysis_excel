@@ -1518,201 +1518,136 @@ document.getElementById('clear-btn').addEventListener('click', () => {
 document.getElementById('pptx-btn').addEventListener('click', downloadPPTX);
 
 async function downloadPPTX() {
-  const pptx = new PptxGenJS();
-  pptx.layout = 'LAYOUT_WIDE';
+  try {
+    if (typeof PptxGenJS === 'undefined') { alert('PptxGenJS library not loaded.'); return; }
 
-  const TITLE_COLOR = '1a202c';
-  const ACCENT = '4299e1';
+    const pptx = new PptxGenJS();
 
-  function addTitleSlide() {
-    const slide = pptx.addSlide();
-    slide.background = { color: 'f0f4f8' };
-    slide.addText('Single Customer View Analyser', {
-      x: 0.5, y: 1.5, w: 12, h: 1.2,
-      fontSize: 36, bold: true, color: TITLE_COLOR, align: 'center'
-    });
-    slide.addText('CSV Analysis Report', {
-      x: 0.5, y: 2.9, w: 12, h: 0.7,
-      fontSize: 20, color: '4a5568', align: 'center'
-    });
-    const fn = document.getElementById('file-name').textContent;
-    if (fn) {
-      slide.addText(fn.replace('✔ ', ''), {
-        x: 0.5, y: 3.8, w: 12, h: 0.5,
-        fontSize: 14, color: '718096', align: 'center'
-      });
-    }
-  }
+    function esc(s) { return String(s || ''); }
 
-  function addSectionHeading(slide, title, color) {
-    slide.addText(title, {
-      x: 0.4, y: 0.2, w: 12.5, h: 0.55,
-      fontSize: 20, bold: true, color: color || ACCENT
-    });
-  }
-
-  function canvasToDataURL(id) {
-    const c = document.getElementById(id);
-    if (!c || c.style.display === 'none') return null;
-    try { return c.toDataURL('image/png'); } catch(e) { return null; }
-  }
-
-  // Title
-  addTitleSlide();
-
-  // Summary slide
-  const summaryEl = document.getElementById('summary');
-  if (summaryEl && summaryEl.style.display !== 'none') {
-    const metaGrid = document.getElementById('meta-grid');
-    const colsGrid = document.getElementById('columns-grid');
-    const slide = pptx.addSlide();
-    slide.background = { color: 'ffffff' };
-    addSectionHeading(slide, 'High Level Summary', '4299e1');
-
-    // Meta stats as text
-    const metaItems = metaGrid ? Array.from(metaGrid.querySelectorAll('.meta-item')).map(el => {
-      const label = el.querySelector('.meta-label')?.textContent || '';
-      const value = el.querySelector('.meta-value')?.textContent || '';
-      return `${label}: ${value}`;
-    }) : [];
-    if (metaItems.length) {
-      slide.addText(metaItems.join('   |   '), {
-        x: 0.4, y: 0.9, w: 12.5, h: 0.5,
-        fontSize: 11, color: '4a5568'
-      });
+    function canvasDataURL(id) {
+      const c = document.getElementById(id);
+      if (!c) return null;
+      try { return c.toDataURL('image/png'); } catch(e) { return null; }
     }
 
-    // Column cards as table rows
-    const cards = colsGrid ? Array.from(colsGrid.querySelectorAll('.col-card')) : [];
-    const rows = [
-      [
-        { text: 'Column', options: { bold: true, fill: { color: ACCENT }, color: 'ffffff' } },
-        { text: 'Type', options: { bold: true, fill: { color: ACCENT }, color: 'ffffff' } },
-        { text: 'Details', options: { bold: true, fill: { color: ACCENT }, color: 'ffffff' } }
-      ]
-    ];
-    cards.forEach(card => {
-      const name = card.querySelector('.col-name')?.textContent || '';
-      const badge = card.querySelector('.type-badge')?.textContent || '';
-      const stats = Array.from(card.querySelectorAll('.stat-row')).map(r => r.textContent.trim()).join(' | ');
-      rows.push([
-        { text: name, options: { fontSize: 9 } },
-        { text: badge, options: { fontSize: 9 } },
-        { text: stats, options: { fontSize: 8 } }
-      ]);
-    });
-    if (rows.length > 1) {
-      slide.addTable(rows, {
-        x: 0.4, y: 1.5, w: 12.5,
-        fontSize: 9, border: { type: 'solid', color: 'e2e8f0', pt: 0.5 },
-        colW: [2.5, 1.2, 8.8]
+    // --- Title slide ---
+    const s0 = pptx.addSlide();
+    s0.addText('Single Customer View Analyser', { x:0.5, y:1.8, w:12, h:1, fontSize:36, bold:true, color:'1a202c', align:'center' });
+    s0.addText('CSV Analysis Report', { x:0.5, y:3, w:12, h:0.6, fontSize:22, color:'4a5568', align:'center' });
+    const fn = document.getElementById('file-name').textContent.replace('✔ ','');
+    if (fn) s0.addText(fn, { x:0.5, y:3.8, w:12, h:0.4, fontSize:13, color:'718096', align:'center' });
+
+    // --- Summary slide ---
+    const summaryEl = document.getElementById('summary');
+    if (summaryEl && summaryEl.style.display !== 'none') {
+      const s1 = pptx.addSlide();
+      s1.addText('High Level Summary', { x:0.4, y:0.2, w:12.5, h:0.6, fontSize:22, bold:true, color:'4299e1' });
+
+      const metaItems = Array.from(document.querySelectorAll('#meta-grid .meta-item')).map(el => {
+        const label = (el.querySelector('.meta-label') || {}).textContent || '';
+        const value = (el.querySelector('.meta-value') || {}).textContent || '';
+        return label + ': ' + value;
       });
-    }
-  }
-
-  // Audience Sizer slide
-  const sizerEl = document.getElementById('sizer');
-  if (sizerEl && sizerEl.style.display !== 'none') {
-    const slide = pptx.addSlide();
-    slide.background = { color: 'ffffff' };
-    addSectionHeading(slide, 'Audience Sizer', '805ad5');
-
-    const countEl = document.getElementById('sizer-count');
-    const countText = countEl ? countEl.textContent : '';
-    slide.addText(countText, {
-      x: 0.4, y: 0.9, w: 12.5, h: 0.6,
-      fontSize: 16, bold: true, color: '1a202c'
-    });
-
-    // Active filters
-    const filterRows = [];
-    const filterEls = sizerEl.querySelectorAll('.filter-group');
-    filterEls.forEach(fg => {
-      const label = fg.querySelector('label')?.textContent || '';
-      let value = '';
-      const range = fg.querySelectorAll('input[type=range]');
-      if (range.length === 2) {
-        value = `${range[0].value} – ${range[1].value}`;
-      } else {
-        const selected = Array.from(fg.querySelectorAll('input[type=checkbox]:checked')).map(cb => cb.value);
-        value = selected.join(', ') || '(all)';
+      if (metaItems.length) {
+        s1.addText(metaItems.join('   |   '), { x:0.4, y:0.9, w:12.5, h:0.45, fontSize:11, color:'4a5568' });
       }
-      filterRows.push([{ text: label, options: { fontSize: 10, bold: true } }, { text: value, options: { fontSize: 10 } }]);
-    });
-    if (filterRows.length) {
-      slide.addTable([[
-        { text: 'Filter', options: { bold: true, fill: { color: '805ad5' }, color: 'ffffff' } },
-        { text: 'Value', options: { bold: true, fill: { color: '805ad5' }, color: 'ffffff' } }
-      ], ...filterRows], {
-        x: 0.4, y: 1.7, w: 12.5, colW: [3.5, 9], fontSize: 10,
-        border: { type: 'solid', color: 'e2e8f0', pt: 0.5 }
-      });
+
+      const cards = Array.from(document.querySelectorAll('#columns-grid .col-card'));
+      if (cards.length) {
+        const rows = [[ {text:'Column',options:{bold:true,color:'ffffff',fill:{color:'4299e1'}}}, {text:'Type',options:{bold:true,color:'ffffff',fill:{color:'4299e1'}}}, {text:'Details',options:{bold:true,color:'ffffff',fill:{color:'4299e1'}}} ]];
+        cards.forEach(card => {
+          const name = esc((card.querySelector('.col-name')||{}).textContent);
+          const badge = esc((card.querySelector('.type-badge')||{}).textContent);
+          const stats = Array.from(card.querySelectorAll('.stat-row')).map(r=>r.textContent.trim()).join(' | ');
+          rows.push([ {text:name,options:{fontSize:9}}, {text:badge,options:{fontSize:9}}, {text:stats,options:{fontSize:8}} ]);
+        });
+        s1.addTable(rows, { x:0.4, y:1.45, w:12.5, colW:[2.5,1.2,8.8], fontSize:9, border:{pt:1,color:'e2e8f0'} });
+      }
     }
-  }
 
-  // Correlation heatmap slide
-  const corrEl = document.getElementById('corr');
-  if (corrEl && corrEl.style.display !== 'none' && lastCorrNumCols && lastCorrRMatrix) {
-    const slide = pptx.addSlide();
-    slide.background = { color: 'ffffff' };
-    addSectionHeading(slide, 'Correlation Analysis', 'e53e3e');
+    // --- Audience Sizer slide ---
+    const sizerEl = document.getElementById('sizer');
+    if (sizerEl && sizerEl.style.display !== 'none') {
+      const s2 = pptx.addSlide();
+      s2.addText('Audience Sizer', { x:0.4, y:0.2, w:12.5, h:0.6, fontSize:22, bold:true, color:'805ad5' });
+      const countEl = document.getElementById('sizer-count');
+      if (countEl) s2.addText(esc(countEl.textContent), { x:0.4, y:0.9, w:12.5, h:0.6, fontSize:18, bold:true, color:'1a202c' });
 
-    // Rebuild heatmap as PPTX table
-    const n = lastCorrNumCols.length;
-    const header = [{ text: '', options: { fill: { color: 'f7fafc' } } }];
-    lastCorrNumCols.forEach(c => header.push({ text: c.name, options: { bold: true, fontSize: 8, fill: { color: 'f7fafc' }, align: 'center' } }));
-    const tableRows = [header];
-    for (let i = 0; i < n; i++) {
-      const row = [{ text: lastCorrNumCols[i].name, options: { bold: true, fontSize: 8 } }];
-      for (let j = 0; j < n; j++) {
-        const r = lastCorrRMatrix[i][j];
-        const val = isNaN(r) ? '' : r.toFixed(2);
-        const abs = isNaN(r) ? 0 : Math.abs(r);
-        const intensity = Math.round(abs * 200);
-        let fillColor = 'ffffff';
-        if (!isNaN(r) && i !== j) {
-          if (r > 0) {
-            const hex = (255 - intensity).toString(16).padStart(2, '0');
-            fillColor = `${hex}${hex}ff`;
-          } else {
-            const hex = (255 - intensity).toString(16).padStart(2, '0');
-            fillColor = `ff${hex}${hex}`;
-          }
+      const filterRows = [];
+      sizerEl.querySelectorAll('.filter-group').forEach(fg => {
+        const label = esc((fg.querySelector('label')||{}).textContent);
+        const ranges = fg.querySelectorAll('input[type=range]');
+        let value = '';
+        if (ranges.length === 2) {
+          value = ranges[0].value + ' – ' + ranges[1].value;
+        } else {
+          const checked = Array.from(fg.querySelectorAll('input[type=checkbox]:checked')).map(cb=>cb.value);
+          value = checked.join(', ') || '(all)';
         }
-        row.push({ text: val, options: { fontSize: 8, align: 'center', fill: { color: fillColor } } });
+        filterRows.push([ {text:label,options:{bold:true,fontSize:10}}, {text:value,options:{fontSize:10}} ]);
+      });
+      if (filterRows.length) {
+        s2.addTable([
+          [ {text:'Filter',options:{bold:true,color:'ffffff',fill:{color:'805ad5'}}}, {text:'Value',options:{bold:true,color:'ffffff',fill:{color:'805ad5'}}} ],
+          ...filterRows
+        ], { x:0.4, y:1.65, w:12.5, colW:[3.5,9], fontSize:10, border:{pt:1,color:'e2e8f0'} });
       }
-      tableRows.push(row);
     }
-    const cellW = Math.min(1.5, 12.5 / (n + 1));
-    slide.addTable(tableRows, {
-      x: 0.4, y: 0.9, w: 12.5,
-      colW: Array(n + 1).fill(cellW),
-      border: { type: 'solid', color: 'e2e8f0', pt: 0.5 }
-    });
 
-    // Scatter canvas if visible
-    const scatterDataURL = canvasToDataURL('scatter-canvas');
-    if (scatterDataURL) {
-      const scatterSlide = pptx.addSlide();
-      scatterSlide.background = { color: 'ffffff' };
-      addSectionHeading(scatterSlide, 'Scatter Plot', 'e53e3e');
-      scatterSlide.addImage({ data: scatterDataURL, x: 1.5, y: 0.9, w: 10, h: 6 });
+    // --- Correlation slide ---
+    const corrEl = document.getElementById('corr');
+    if (corrEl && corrEl.style.display !== 'none' && lastCorrNumCols && lastCorrRMatrix) {
+      const s3 = pptx.addSlide();
+      s3.addText('Correlation Analysis', { x:0.4, y:0.2, w:12.5, h:0.6, fontSize:22, bold:true, color:'e53e3e' });
+
+      const n = lastCorrNumCols.length;
+      const hdr = [ {text:'',options:{fill:{color:'f0f0f0'}}} ];
+      lastCorrNumCols.forEach(c => hdr.push({text:esc(c.name),options:{bold:true,fontSize:8,fill:{color:'f0f0f0'},align:'center'}}));
+      const tblRows = [hdr];
+      for (let i = 0; i < n; i++) {
+        const row = [ {text:esc(lastCorrNumCols[i].name),options:{bold:true,fontSize:8}} ];
+        for (let j = 0; j < n; j++) {
+          const r = lastCorrRMatrix[i][j];
+          const val = isNaN(r) ? '' : r.toFixed(2);
+          const intensity = isNaN(r) ? 0 : Math.round(Math.abs(r) * 180);
+          let fillColor = 'ffffff';
+          if (!isNaN(r) && i !== j) {
+            const h = (255 - intensity).toString(16).padStart(2,'0');
+            fillColor = r > 0 ? (h + h + 'ff') : ('ff' + h + h);
+          }
+          row.push({text:val,options:{fontSize:8,align:'center',fill:{color:fillColor}}});
+        }
+        tblRows.push(row);
+      }
+      const cw = Math.min(1.4, 12.5 / (n + 1));
+      s3.addTable(tblRows, { x:0.4, y:0.9, w:12.5, colW:Array(n+1).fill(cw), fontSize:8, border:{pt:1,color:'cccccc'} });
+
+      const scatterURL = canvasDataURL('scatter-canvas');
+      if (scatterURL) {
+        const ss = pptx.addSlide();
+        ss.addText('Scatter Plot', { x:0.4, y:0.2, w:12.5, h:0.6, fontSize:22, bold:true, color:'e53e3e' });
+        ss.addImage({ data:scatterURL, x:1.5, y:0.9, w:10, h:6 });
+      }
     }
+
+    // --- Distribution slide ---
+    const distEl = document.getElementById('dist');
+    if (distEl && distEl.style.display !== 'none') {
+      const boxURL = canvasDataURL('box-canvas');
+      if (boxURL) {
+        const s4 = pptx.addSlide();
+        s4.addText('Distribution View', { x:0.4, y:0.2, w:12.5, h:0.6, fontSize:22, bold:true, color:'38a169' });
+        s4.addImage({ data:boxURL, x:0.4, y:0.9, w:12.5, h:6.2 });
+      }
+    }
+
+    await pptx.writeFile({ fileName: 'SCV_Analysis.pptx' });
+
+  } catch(err) {
+    alert('PPTX download failed: ' + err.message);
+    console.error(err);
   }
-
-  // Distribution slide
-  const distEl = document.getElementById('dist');
-  if (distEl && distEl.style.display !== 'none') {
-    const boxDataURL = canvasToDataURL('box-canvas');
-    if (boxDataURL) {
-      const slide = pptx.addSlide();
-      slide.background = { color: 'ffffff' };
-      addSectionHeading(slide, 'Distribution View', '38a169');
-      slide.addImage({ data: boxDataURL, x: 0.4, y: 0.9, w: 12.5, h: 6.2 });
-    }
-  }
-
-  pptx.writeFile({ fileName: 'SCV_Analysis.pptx' });
 }
 </script>
 </body>
